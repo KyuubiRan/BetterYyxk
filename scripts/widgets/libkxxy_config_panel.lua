@@ -1,0 +1,180 @@
+local Image = require("widgets/image")
+local Text = require("widgets/text")
+local Widget = require("widgets/widget")
+local TEMPLATES = require("widgets/redux/templates")
+local ModConfig = require("libkxxy_config")
+local KeyListener = require("libkxxy_key_listener")
+local LibKxxyConfigItem = require("widgets/libkxxy_config_item")
+
+local PANEL_WIDTH = 320
+local PANEL_HEIGHT = 430
+local ITEM_HEIGHT = 40
+local ITEM_WIDTH = PANEL_WIDTH - 46
+local VISIBLE_ROWS = 7
+
+local LibKxxyConfigPanel = Class(Widget, function(self, owner)
+    Widget._ctor(self, "LibKxxyConfigPanel")
+
+    self.owner = owner
+    self.config = ModConfig
+    self.optionwidgets = self.config:GetDefinitions()
+    self.capture_item = nil
+    self.capture_transition = false
+
+    self:SetScaleMode(SCALEMODE_PROPORTIONAL)
+    self:SetHAnchor(ANCHOR_MIDDLE)
+    self:SetVAnchor(ANCHOR_MIDDLE)
+    self:SetPosition(0, 0, 0)
+
+    local buttons = {
+        {
+            text = "关闭",
+            cb = function()
+                self:HidePanel()
+            end,
+        },
+    }
+
+    self.dialog = self:AddChild(TEMPLATES.RectangleWindow(PANEL_WIDTH, PANEL_HEIGHT, nil, buttons))
+
+    self.header = self.dialog:AddChild(Widget("header"))
+    self.header:SetPosition(0, 188, 0)
+
+    self.title = self.header:AddChild(Text(HEADERFONT, 30, "空心夜雨"))
+    self.title:SetColour(UICOLOURS.GOLD_SELECTED)
+
+    self.content_root = self.dialog:InsertWidget(Widget("content_root"))
+    self.content_root:SetPosition(0, -10, 0)
+
+    self.section_title = self.content_root:AddChild(Text(HEADERFONT, 22, "当前配置"))
+    self.section_title:SetColour(UICOLOURS.GOLD_SELECTED)
+    self.section_title:SetPosition(0, 108, 0)
+
+    self.section_divider = self.content_root:AddChild(Image("images/global_redux.xml", "item_divider.tex"))
+    self.section_divider:SetPosition(0, 86, 0)
+    self.section_divider:SetSize(PANEL_WIDTH - 54, 5)
+
+    self.optionspanel = self.content_root:AddChild(Widget("optionspanel"))
+    self.optionspanel:SetPosition(0, -50, 0)
+
+    local function ScrollWidgetsCtor(context, idx)
+        return LibKxxyConfigItem(self, ITEM_WIDTH, ITEM_HEIGHT)
+    end
+
+    local function ApplyDataToWidget(context, widget, data, idx)
+        widget:SetData(data)
+    end
+
+    self.options_scroll_list = self.optionspanel:AddChild(TEMPLATES.ScrollingGrid(self.optionwidgets, {
+        scroll_context = {},
+        widget_width = ITEM_WIDTH,
+        widget_height = ITEM_HEIGHT,
+        num_visible_rows = VISIBLE_ROWS,
+        num_columns = 1,
+        item_ctor_fn = ScrollWidgetsCtor,
+        apply_fn = ApplyDataToWidget,
+        scrollbar_offset = 10,
+        scrollbar_height_offset = -10,
+    }))
+    self.options_scroll_list:SetPosition(-2, -4, 0)
+
+    self._config_listener = self.config:AddListener(function(changed)
+        self:OnConfigChanged(changed)
+    end)
+
+    self:Refresh()
+    self.default_focus = self.options_scroll_list
+
+    self:Hide()
+end)
+
+function LibKxxyConfigPanel:ToggleCheckbox(name)
+    local current = self.config:Get(name, false)
+    local next_value = not current
+    self.config:SaveBatch({
+        [name] = next_value,
+    })
+    return next_value
+end
+
+function LibKxxyConfigPanel:BindKey(name, key)
+    self.config:SaveBatch({
+        [name] = key,
+    })
+end
+
+function LibKxxyConfigPanel:BeginKeyCapture(item)
+    if self.capture_item ~= nil and self.capture_item ~= item then
+        self.capture_item:RefreshKeyDisplay()
+    end
+
+    self.capture_item = item
+end
+
+function LibKxxyConfigPanel:EndKeyCapture(item, keep_focus)
+    if self.capture_transition then
+        return
+    end
+
+    self.capture_transition = true
+    local should_release = self.capture_item == item
+    self.capture_item = nil
+
+    if should_release and TheFrontEnd ~= nil then
+        TheFrontEnd:SetForceProcessTextInput(false, item)
+    end
+
+    if item ~= nil then
+        item:RefreshKeyDisplay()
+        if not keep_focus and item.key_button ~= nil then
+            item.key_button:ClearFocus()
+        end
+    end
+
+    self.capture_transition = false
+end
+
+function LibKxxyConfigPanel:Refresh()
+    if self.options_scroll_list ~= nil then
+        self.optionwidgets = self.config:GetDefinitions()
+        self.options_scroll_list:SetItemsData(self.optionwidgets)
+        self.options_scroll_list:RefreshView()
+    end
+end
+
+function LibKxxyConfigPanel:OnConfigChanged()
+    self:Refresh()
+end
+
+function LibKxxyConfigPanel:ShowPanel()
+    KeyListener:SetSettingsOpen(true)
+    self:MoveToFront()
+    self:Show()
+end
+
+function LibKxxyConfigPanel:HidePanel()
+    KeyListener:SetSettingsOpen(false)
+
+    if self.capture_item ~= nil then
+        self:EndKeyCapture(self.capture_item, false)
+    end
+
+    self:Hide()
+end
+
+function LibKxxyConfigPanel:Toggle()
+    if self.shown then
+        self:HidePanel()
+    else
+        self:ShowPanel()
+    end
+end
+
+function LibKxxyConfigPanel:OnRemoveEntity()
+    if self.config ~= nil and self._config_listener ~= nil then
+        self.config:RemoveListener(self._config_listener)
+        self._config_listener = nil
+    end
+end
+
+return LibKxxyConfigPanel
