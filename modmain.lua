@@ -23,9 +23,14 @@ local LibKxyyIntro = require("widgets/libkxyy_intro")
 local LibKxyyMagicWheel = require("widgets/libkxyy_magic_wheel")
 local YyxkApi = require("yyxk_api")
 
+local MAGIC_WHEEL_SHORT_PRESS_TIME = 0.2
+
 local active_magic_wheel = nil
 local active_controls = nil
 local magic_wheel_open = false
+local magic_wheel_down_time = nil
+local current_weapon_magic_option = nil
+local previous_weapon_magic_option = nil
 local initialized = false
 local player_active = false
 local actions_registered = false
@@ -68,6 +73,52 @@ local function RefreshMagicWheelOptions()
     end
 end
 
+local function GetNow()
+    return GetTime ~= nil and GetTime() or 0
+end
+
+local function IsSameMagicOption(left, right)
+    return left ~= nil and right ~= nil and left.key == right.key
+end
+
+local function SetWeaponMagic(option, skip_history)
+    if option == nil then
+        return false
+    end
+
+    local api = GetYyxkApi()
+    if api ~= nil and api:SetWeaponMagic(option.key) then
+        if not skip_history and not IsSameMagicOption(option, current_weapon_magic_option) then
+            previous_weapon_magic_option = current_weapon_magic_option
+            current_weapon_magic_option = option
+        end
+
+        api:Say("切换: " .. option.label)
+        return true
+    end
+
+    return false
+end
+
+local function QuickSwitchLastWeaponMagic()
+    local api = GetYyxkApi()
+    if previous_weapon_magic_option == nil then
+        if api ~= nil then
+            api:Say("没有选择任何魔法")
+        end
+        return false
+    end
+
+    local next_option = previous_weapon_magic_option
+    if SetWeaponMagic(next_option, true) then
+        previous_weapon_magic_option = current_weapon_magic_option
+        current_weapon_magic_option = next_option
+        return true
+    end
+
+    return false
+end
+
 local function ShowMagicWheel()
     if not player_active then
         return
@@ -82,6 +133,7 @@ local function ShowMagicWheel()
         return
     end
 
+    magic_wheel_down_time = GetNow()
     magic_wheel_open = true
     active_magic_wheel:ShowWheel(LibKxyyConfig:Get("fixed_magic_wheel", true))
 end
@@ -95,7 +147,16 @@ local function HideMagicWheel()
         return
     end
 
+    local press_time = magic_wheel_down_time ~= nil and GetNow() - magic_wheel_down_time or nil
+    magic_wheel_down_time = nil
     magic_wheel_open = false
+
+    if press_time ~= nil and press_time < MAGIC_WHEEL_SHORT_PRESS_TIME then
+        active_magic_wheel:HideWheel(false)
+        QuickSwitchLastWeaponMagic()
+        return
+    end
+
     active_magic_wheel:HideWheel(true)
 end
 
@@ -259,10 +320,7 @@ local function AttachControlsUI(self)
     active_magic_wheel = self.libkxyy_magic_wheel
 
     self.libkxyy_magic_wheel:SetOnSelect(function(option)
-        local api = GetYyxkApi()
-        if api ~= nil and api:SetWeaponMagic(option.key) then
-            api:Say("切换: " .. option.label)
-        end
+        SetWeaponMagic(option)
     end)
 
     self.libkxyy_intro:SetOnActivate(function()
