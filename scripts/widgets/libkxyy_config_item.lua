@@ -3,6 +3,9 @@ local Widget = require("widgets/widget")
 local TEMPLATES = require("widgets/redux/templates")
 
 local KEY_NONE = -1
+local LABEL_LEFT = -103
+local CHECKBOX_LABEL_WIDTH_OFFSET = 120
+local KEY_LABEL_WIDTH_OFFSET = 188
 local KEY_NAME_MAP = {
     [KEY_NONE] = "None",
 }
@@ -81,8 +84,17 @@ local function GetKeyDisplayName(key)
     return KEY_NAME_MAP[key] or tostring(key)
 end
 
-local LibKxxyConfigItem = Class(Widget, function(self, panel, width, height)
-    Widget._ctor(self, "LibKxxyConfigItem")
+local function SetLeftAlignedTextRegion(text, left, width, height)
+    text:SetRegionSize(width, height)
+    text:SetPosition(left + width * 0.5, 0, 0)
+end
+
+local function IsClearKeyControl(control, down)
+    return not down and CONTROL_SECONDARY ~= nil and control == CONTROL_SECONDARY
+end
+
+local LibKxyyConfigItem = Class(Widget, function(self, panel, width, height)
+    Widget._ctor(self, "LibKxyyConfigItem")
 
     self.panel = panel
     self.item_width = width
@@ -125,7 +137,7 @@ local LibKxxyConfigItem = Class(Widget, function(self, panel, width, height)
 
     local old_control = self.key_button.OnControl
     self.key_button.OnControl = function(button, control, down)
-        if self.panel.capture_item == self and control == CONTROL_CANCEL and not down then
+        if self.panel.capture_item == self and IsClearKeyControl(control, down) then
             self:CompleteKeyCapture(KEY_NONE)
             return true
         end
@@ -134,9 +146,9 @@ local LibKxxyConfigItem = Class(Widget, function(self, panel, width, height)
     end
 end)
 
-function LibKxxyConfigItem:OnRawKey(key, down)
+function LibKxyyConfigItem:OnRawKey(key, down)
     if self.panel.capture_item ~= self then
-        return LibKxxyConfigItem._base.OnRawKey(self, key, down)
+        return LibKxyyConfigItem._base.OnRawKey(self, key, down)
     end
 
     if down then
@@ -147,24 +159,24 @@ function LibKxxyConfigItem:OnRawKey(key, down)
     return true
 end
 
-function LibKxxyConfigItem:OnControl(control, down)
+function LibKxyyConfigItem:OnControl(control, down)
     if self.panel.capture_item == self then
-        if control == CONTROL_CANCEL and not down then
+        if IsClearKeyControl(control, down) then
             self:CompleteKeyCapture(KEY_NONE)
         end
         return true
     end
 
-    return LibKxxyConfigItem._base.OnControl(self, control, down)
+    return LibKxyyConfigItem._base.OnControl(self, control, down)
 end
 
-function LibKxxyConfigItem:OnStopForceProcessTextInput()
+function LibKxyyConfigItem:OnStopForceProcessTextInput()
     if not self.panel.capture_transition and self.panel.capture_item == self then
         self.panel:EndKeyCapture(self, false)
     end
 end
 
-function LibKxxyConfigItem:SetChecked(value)
+function LibKxyyConfigItem:SetChecked(value)
     if value then
         self.checkbox:SetTextures("images/global_redux.xml", "checkbox_normal_check.tex", "checkbox_focus_check.tex", "checkbox_normal.tex", nil, nil, {1, 1}, {0, 0})
     else
@@ -172,7 +184,7 @@ function LibKxxyConfigItem:SetChecked(value)
     end
 end
 
-function LibKxxyConfigItem:SetTooltip(text)
+function LibKxyyConfigItem:SetTooltip(text)
     local options = {
         font = CHATFONT,
         offset_y = -42,
@@ -185,7 +197,7 @@ function LibKxxyConfigItem:SetTooltip(text)
     self.key_button:SetHoverText(text or "", options)
 end
 
-function LibKxxyConfigItem:RefreshKeyDisplay()
+function LibKxyyConfigItem:RefreshKeyDisplay()
     if self.definition == nil or self.definition.type ~= "key" then
         return
     end
@@ -197,7 +209,7 @@ function LibKxxyConfigItem:RefreshKeyDisplay()
     end
 end
 
-function LibKxxyConfigItem:SetData(definition)
+function LibKxyyConfigItem:SetData(definition)
     self.definition = definition
 
     if definition == nil then
@@ -212,14 +224,12 @@ function LibKxxyConfigItem:SetData(definition)
     if definition.type == "checkbox" then
         self.checkbox:Show()
         self.key_button:Hide()
-        self.label:SetRegionSize(self.item_width - 120, 28)
-        self.label:SetPosition(-26, 0, 0)
+        SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - CHECKBOX_LABEL_WIDTH_OFFSET, 28)
         self:SetChecked(self.panel.config:Get(definition.name, definition.default))
     elseif definition.type == "key" then
         self.checkbox:Hide()
         self.key_button:Show()
-        self.label:SetRegionSize(self.item_width - 188, 28)
-        self.label:SetPosition(-28, 0, 0)
+        SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - KEY_LABEL_WIDTH_OFFSET, 28)
         self:RefreshKeyDisplay()
     else
         self.checkbox:Hide()
@@ -227,7 +237,7 @@ function LibKxxyConfigItem:SetData(definition)
     end
 end
 
-function LibKxxyConfigItem:ToggleCheckbox()
+function LibKxyyConfigItem:ToggleCheckbox()
     if self.definition == nil or self.definition.type ~= "checkbox" then
         return false
     end
@@ -237,7 +247,7 @@ function LibKxxyConfigItem:ToggleCheckbox()
     return next_value
 end
 
-function LibKxxyConfigItem:BeginKeyCapture()
+function LibKxyyConfigItem:BeginKeyCapture()
     if self.definition == nil or self.definition.type ~= "key" then
         return
     end
@@ -249,21 +259,16 @@ function LibKxxyConfigItem:BeginKeyCapture()
     self:RefreshKeyDisplay()
 end
 
-function LibKxxyConfigItem:CompleteKeyCapture(key)
+function LibKxyyConfigItem:CompleteKeyCapture(key)
     if self.definition == nil or self.definition.type ~= "key" then
         return
-    end
-
-    local escape_key = KEY_ESCAPE or 27
-    if key == escape_key then
-        key = KEY_NONE
     end
 
     self.panel:BindKey(self.definition.name, key)
     self.panel:EndKeyCapture(self, true)
 end
 
-function LibKxxyConfigItem:Activate()
+function LibKxyyConfigItem:Activate()
     if self.definition == nil then
         return false
     end
@@ -278,4 +283,4 @@ function LibKxxyConfigItem:Activate()
     return false
 end
 
-return LibKxxyConfigItem
+return LibKxyyConfigItem

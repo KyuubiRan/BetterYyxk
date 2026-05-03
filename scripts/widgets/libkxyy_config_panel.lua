@@ -2,18 +2,22 @@ local Image = require("widgets/image")
 local Text = require("widgets/text")
 local Widget = require("widgets/widget")
 local TEMPLATES = require("widgets/redux/templates")
-local ModConfig = require("libkxxy_config")
-local KeyListener = require("libkxxy_key_listener")
-local LibKxxyConfigItem = require("widgets/libkxxy_config_item")
+local ModConfig = require("libkxyy_config")
+local KeyListener = require("libkxyy_key_listener")
+local LibKxyyConfigItem = require("widgets/libkxyy_config_item")
 
 local PANEL_WIDTH = 320
 local PANEL_HEIGHT = 430
 local ITEM_HEIGHT = 40
 local ITEM_WIDTH = PANEL_WIDTH - 46
 local VISIBLE_ROWS = 7
+local CONTENT_ROOT_Y = 20
+local SECTION_TITLE_Y = 122
+local SECTION_DIVIDER_Y = 145
+local OPTIONS_PANEL_Y = -50
 
-local LibKxxyConfigPanel = Class(Widget, function(self, owner)
-    Widget._ctor(self, "LibKxxyConfigPanel")
+local LibKxyyConfigPanel = Class(Widget, function(self, owner)
+    Widget._ctor(self, "LibKxyyConfigPanel")
 
     self.owner = owner
     self.config = ModConfig
@@ -44,21 +48,21 @@ local LibKxxyConfigPanel = Class(Widget, function(self, owner)
     self.title:SetColour(UICOLOURS.GOLD_SELECTED)
 
     self.content_root = self.dialog:InsertWidget(Widget("content_root"))
-    self.content_root:SetPosition(0, -10, 0)
+    self.content_root:SetPosition(0, CONTENT_ROOT_Y, 0)
 
     self.section_title = self.content_root:AddChild(Text(HEADERFONT, 22, "当前配置"))
     self.section_title:SetColour(UICOLOURS.GOLD_SELECTED)
-    self.section_title:SetPosition(0, 108, 0)
+    self.section_title:SetPosition(0, SECTION_TITLE_Y, 0)
 
     self.section_divider = self.content_root:AddChild(Image("images/global_redux.xml", "item_divider.tex"))
-    self.section_divider:SetPosition(0, 86, 0)
+    self.section_divider:SetPosition(0, SECTION_DIVIDER_Y, 0)
     self.section_divider:SetSize(PANEL_WIDTH - 54, 5)
 
     self.optionspanel = self.content_root:AddChild(Widget("optionspanel"))
-    self.optionspanel:SetPosition(0, -50, 0)
+    self.optionspanel:SetPosition(0, OPTIONS_PANEL_Y, 0)
 
     local function ScrollWidgetsCtor(context, idx)
-        return LibKxxyConfigItem(self, ITEM_WIDTH, ITEM_HEIGHT)
+        return LibKxyyConfigItem(self, ITEM_WIDTH, ITEM_HEIGHT)
     end
 
     local function ApplyDataToWidget(context, widget, data, idx)
@@ -88,7 +92,7 @@ local LibKxxyConfigPanel = Class(Widget, function(self, owner)
     self:Hide()
 end)
 
-function LibKxxyConfigPanel:ToggleCheckbox(name)
+function LibKxyyConfigPanel:ToggleCheckbox(name)
     local current = self.config:Get(name, false)
     local next_value = not current
     self.config:SaveBatch({
@@ -97,13 +101,13 @@ function LibKxxyConfigPanel:ToggleCheckbox(name)
     return next_value
 end
 
-function LibKxxyConfigPanel:BindKey(name, key)
+function LibKxyyConfigPanel:BindKey(name, key)
     self.config:SaveBatch({
         [name] = key,
     })
 end
 
-function LibKxxyConfigPanel:BeginKeyCapture(item)
+function LibKxyyConfigPanel:BeginKeyCapture(item)
     if self.capture_item ~= nil and self.capture_item ~= item then
         self.capture_item:RefreshKeyDisplay()
     end
@@ -111,7 +115,7 @@ function LibKxxyConfigPanel:BeginKeyCapture(item)
     self.capture_item = item
 end
 
-function LibKxxyConfigPanel:EndKeyCapture(item, keep_focus)
+function LibKxyyConfigPanel:EndKeyCapture(item, keep_focus)
     if self.capture_transition then
         return
     end
@@ -134,7 +138,7 @@ function LibKxxyConfigPanel:EndKeyCapture(item, keep_focus)
     self.capture_transition = false
 end
 
-function LibKxxyConfigPanel:Refresh()
+function LibKxyyConfigPanel:Refresh()
     if self.options_scroll_list ~= nil then
         self.optionwidgets = self.config:GetDefinitions()
         self.options_scroll_list:SetItemsData(self.optionwidgets)
@@ -142,17 +146,17 @@ function LibKxxyConfigPanel:Refresh()
     end
 end
 
-function LibKxxyConfigPanel:OnConfigChanged()
+function LibKxyyConfigPanel:OnConfigChanged()
     self:Refresh()
 end
 
-function LibKxxyConfigPanel:ShowPanel()
+function LibKxyyConfigPanel:ShowPanel()
     KeyListener:SetSettingsOpen(true)
     self:MoveToFront()
     self:Show()
 end
 
-function LibKxxyConfigPanel:HidePanel()
+function LibKxyyConfigPanel:HidePanel()
     KeyListener:SetSettingsOpen(false)
 
     if self.capture_item ~= nil then
@@ -162,7 +166,7 @@ function LibKxxyConfigPanel:HidePanel()
     self:Hide()
 end
 
-function LibKxxyConfigPanel:Toggle()
+function LibKxyyConfigPanel:Toggle()
     if self.shown then
         self:HidePanel()
     else
@@ -170,11 +174,11 @@ function LibKxxyConfigPanel:Toggle()
     end
 end
 
-function LibKxxyConfigPanel:OnRemoveEntity()
+function LibKxyyConfigPanel:OnRemoveEntity()
     if self.config ~= nil and self._config_listener ~= nil then
         self.config:RemoveListener(self._config_listener)
         self._config_listener = nil
     end
 end
 
-return LibKxxyConfigPanel
+return LibKxyyConfigPanel

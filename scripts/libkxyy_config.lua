@@ -1,6 +1,7 @@
 local json = require("json")
 
-local CONFIG_NAME = "better_yyxk_settings"
+local CONFIG_NAME = "libkxyy_config"
+local DEFAULT_MAGIC_WHEEL_HOTKEY = rawget(_G, "KEY_G") or 71
 
 local DEFINITIONS = {
     {
@@ -11,17 +12,19 @@ local DEFINITIONS = {
         default = false,
     },
     {
-        name = "test_hotkey",
+        name = "magic_wheel_hotkey",
         type = "key",
-        label = "测试按键",
-        description = "点击后按下一个按键进行绑定，按 Esc 取消并设为 None",
-        default = -1,
+        label = "轮盘按键",
+        description = "按住打开魔法轮盘，松开选择当前指向的魔法",
+        default = DEFAULT_MAGIC_WHEEL_HOTKEY,
     },
 }
 
 local ModConfig = {
     values = {},
+    ui = {},
     listeners = {},
+    load_listeners = {},
     load_started = false,
     load_complete = false,
 }
@@ -39,6 +42,31 @@ end
 local function NotifyListeners(changed)
     for listener in pairs(ModConfig.listeners) do
         listener(changed)
+    end
+end
+
+local function NotifyLoadListeners()
+    for listener in pairs(ModConfig.load_listeners) do
+        listener(ModConfig)
+    end
+end
+
+local function SavePersistent()
+    if TheSim == nil then
+        return
+    end
+
+    local payload = {
+        version = 1,
+        values = ModConfig.values,
+        ui = ModConfig.ui,
+    }
+    local encoded = json.encode(payload)
+
+    if SavePersistentString ~= nil then
+        SavePersistentString(CONFIG_NAME, encoded, false)
+    else
+        TheSim:SetPersistentString(CONFIG_NAME, encoded, false, nil)
     end
 end
 
@@ -118,6 +146,24 @@ function ModConfig:RemoveListener(listener)
     end
 end
 
+function ModConfig:AddLoadListener(listener)
+    if listener ~= nil then
+        self.load_listeners[listener] = true
+
+        if self.load_complete then
+            listener(self)
+        end
+    end
+
+    return listener
+end
+
+function ModConfig:RemoveLoadListener(listener)
+    if listener ~= nil then
+        self.load_listeners[listener] = nil
+    end
+end
+
 function ModConfig:Load()
     if self.load_started then
         return
@@ -131,6 +177,7 @@ function ModConfig:Load()
 
     if TheSim == nil then
         self.load_complete = true
+        NotifyLoadListeners()
         return
     end
 
@@ -140,15 +187,21 @@ function ModConfig:Load()
                 return json.decode(str)
             end)
 
-            if ok and type(data) == "table" and type(data.values) == "table" then
+            if ok and type(data) == "table" then
                 local changed = {}
 
-                for _, definition in ipairs(DEFINITIONS) do
-                    local value = NormalizeValue(definition, data.values[definition.name])
-                    if value ~= nil and self.values[definition.name] ~= value then
-                        self.values[definition.name] = value
-                        changed[definition.name] = value
+                if type(data.values) == "table" then
+                    for _, definition in ipairs(DEFINITIONS) do
+                        local value = NormalizeValue(definition, data.values[definition.name])
+                        if value ~= nil and self.values[definition.name] ~= value then
+                            self.values[definition.name] = value
+                            changed[definition.name] = value
+                        end
                     end
+                end
+
+                if type(data.ui) == "table" then
+                    self.ui = data.ui
                 end
 
                 if next(changed) ~= nil then
@@ -158,7 +211,29 @@ function ModConfig:Load()
         end
 
         self.load_complete = true
+        NotifyLoadListeners()
     end)
+end
+
+function ModConfig:GetUIState(name)
+    if name == nil or type(self.ui) ~= "table" then
+        return nil
+    end
+
+    return self.ui[name]
+end
+
+function ModConfig:SaveUIState(name, state)
+    if name == nil or type(state) ~= "table" then
+        return
+    end
+
+    if type(self.ui) ~= "table" then
+        self.ui = {}
+    end
+
+    self.ui[name] = state
+    SavePersistent()
 end
 
 function ModConfig:SaveBatch(entries)
@@ -184,22 +259,7 @@ function ModConfig:SaveBatch(entries)
     end
 
     NotifyListeners(changed)
-
-    if TheSim == nil then
-        return
-    end
-
-    local payload = {
-        version = 1,
-        values = self.values,
-    }
-    local encoded = json.encode(payload)
-
-    if SavePersistentString ~= nil then
-        SavePersistentString(CONFIG_NAME, encoded, false)
-    else
-        TheSim:SetPersistentString(CONFIG_NAME, encoded, false, nil)
-    end
+    SavePersistent()
 end
 
 return ModConfig

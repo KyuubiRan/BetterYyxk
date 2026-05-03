@@ -1,5 +1,5 @@
 name = "空心夜雨"
-description = "空心夜雨客户端模组基础框架。"
+description = "夜雨空心辅助mod"
 author = "KyuubiRan"
 version = "0.1.0"
 

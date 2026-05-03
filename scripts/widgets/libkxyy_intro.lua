@@ -1,6 +1,5 @@
 local Widget = require("widgets/widget")
 local Image = require("widgets/image")
-local json = require("json")
 
 local FRAME_COUNT = 15
 local FRAME_TIME = 0.08
@@ -14,15 +13,7 @@ local SCALE_STEP = 0.05
 local SCREEN_MARGIN = 10
 
 local ATLAS_PATH = "images/uiwidget_anim.xml"
-local CONFIG_NAME = "better_yyxk_libkxxy_intro"
-local LEGACY_CONFIG_NAME = "better_yyxk_kongxinyeyu_intro"
-
-local PROFILE_KEY_POS_X = "libkxxy_intro_pos_x"
-local PROFILE_KEY_POS_Y = "libkxxy_intro_pos_y"
-local PROFILE_KEY_SCALE_RATIO = "libkxxy_intro_scale_ratio"
-local LEGACY_PROFILE_KEY_POS_X = "kongxinyeyu_intro_pos_x"
-local LEGACY_PROFILE_KEY_POS_Y = "kongxinyeyu_intro_pos_y"
-local LEGACY_PROFILE_KEY_SCALE_RATIO = "kongxinyeyu_intro_scale_ratio"
+local UI_STATE_NAME = "intro"
 
 local function Clamp(min_value, max_value, value)
     return math.max(min_value, math.min(max_value, value))
@@ -52,11 +43,11 @@ local function BuildFrames()
     return frames
 end
 
-local LibKxxyIntro = Class(Widget, function(self, owner)
-    Widget._ctor(self, "LibKxxyIntro")
+local LibKxyyIntro = Class(Widget, function(self, owner)
+    Widget._ctor(self, "LibKxyyIntro")
 
     self.owner = owner
-    self.config = require("libkxxy_config")
+    self.config = require("libkxyy_config")
     self.frames = BuildFrames()
     self.current_frame = 1
     self.hovered = false
@@ -92,18 +83,21 @@ local LibKxxyIntro = Class(Widget, function(self, owner)
     end)
 
     self:LoadState()
+    self._config_load_listener = self.config:AddLoadListener(function()
+        self:LoadState()
+    end)
 end)
 
-function LibKxxyIntro:GetActualScale()
+function LibKxyyIntro:GetActualScale()
     return BASE_SCALE * self.scale_ratio
 end
 
-function LibKxxyIntro:GetScaledDimensions(scale_ratio)
+function LibKxyyIntro:GetScaledDimensions(scale_ratio)
     local actual_scale = BASE_SCALE * (scale_ratio or self.scale_ratio)
     return FRAME_WIDTH * actual_scale, FRAME_HEIGHT * actual_scale
 end
 
-function LibKxxyIntro:GetScreenBounds(scale_ratio)
+function LibKxyyIntro:GetScreenBounds(scale_ratio)
     local screen_width, screen_height = TheSim:GetScreenSize()
     local widget_width, widget_height = self:GetScaledDimensions(scale_ratio)
     local half_width = widget_width * 0.5
@@ -117,17 +111,17 @@ function LibKxxyIntro:GetScreenBounds(scale_ratio)
     return min_x, max_x, min_y, max_y
 end
 
-function LibKxxyIntro:ClampPosition(x, y, scale_ratio)
+function LibKxyyIntro:ClampPosition(x, y, scale_ratio)
     local min_x, max_x, min_y, max_y = self:GetScreenBounds(scale_ratio)
     return Clamp(min_x, max_x, x), Clamp(min_y, max_y, y)
 end
 
-function LibKxxyIntro:GetDefaultPosition(scale_ratio)
+function LibKxyyIntro:GetDefaultPosition(scale_ratio)
     local min_x, _, min_y = self:GetScreenBounds(scale_ratio)
     return min_x, min_y
 end
 
-function LibKxxyIntro:IsScreenPointInside(screen_x, screen_y)
+function LibKxyyIntro:IsScreenPointInside(screen_x, screen_y)
     local local_x, local_y = GetTopRootMousePosition(screen_x, screen_y)
     local pos_x, pos_y = self:GetPositionXYZ()
     local half_width, half_height = self:GetScaledDimensions()
@@ -140,7 +134,7 @@ function LibKxxyIntro:IsScreenPointInside(screen_x, screen_y)
         and local_y <= pos_y + half_height
 end
 
-function LibKxxyIntro:ApplyScale(scale_ratio, skip_save)
+function LibKxyyIntro:ApplyScale(scale_ratio, skip_save)
     self.scale_ratio = Clamp(MIN_SCALE_RATIO, MAX_SCALE_RATIO, scale_ratio)
 
     local actual_scale = self:GetActualScale()
@@ -159,7 +153,7 @@ function LibKxxyIntro:ApplyScale(scale_ratio, skip_save)
     end
 end
 
-function LibKxxyIntro:AdjustScale(delta_ratio)
+function LibKxyyIntro:AdjustScale(delta_ratio)
     if self.config ~= nil and self.config:Get("lock_ui", false) then
         return false
     end
@@ -173,122 +167,50 @@ function LibKxxyIntro:AdjustScale(delta_ratio)
     return true
 end
 
-function LibKxxyIntro:LoadState()
+function LibKxyyIntro:LoadState()
     local default_x, default_y = self:GetDefaultPosition(1)
     self:ApplyScale(1, true)
     self:SetPosition(default_x, default_y, 0)
 
-    local function ApplyConfigData(data, should_migrate)
-        if self.inst == nil or not self.inst:IsValid() then
-            return
-        end
-
-        local scale_ratio = type(data.scale_ratio) == "number" and data.scale_ratio or 1
-        self:ApplyScale(scale_ratio, true)
-
-        local saved_x = type(data.x) == "number" and data.x or nil
-        local saved_y = type(data.y) == "number" and data.y or nil
-
-        if saved_x ~= nil and saved_y ~= nil and (saved_x < 0 or saved_y < 0) then
-            local screen_width, screen_height = TheSim:GetScreenSize()
-            saved_x = saved_x + screen_width
-            saved_y = saved_y + screen_height
-            should_migrate = true
-        end
-
-        if saved_x == nil or saved_y == nil then
-            saved_x, saved_y = self:GetDefaultPosition(self.scale_ratio)
-        else
-            saved_x, saved_y = self:ClampPosition(saved_x, saved_y, self.scale_ratio)
-        end
-
-        self:SetPosition(saved_x, saved_y, 0)
-
-        if should_migrate then
-            self:SaveState()
-        end
+    if self.inst == nil or not self.inst:IsValid() or self.config == nil then
+        return
     end
 
-    local function DecodeConfigData(str)
-        local ok, data = pcall(function()
-            return json.decode(str)
-        end)
-
-        if ok and type(data) == "table" then
-            return data
-        end
+    local data = self.config:GetUIState(UI_STATE_NAME)
+    if type(data) ~= "table" then
+        return
     end
 
-    local function LoadLegacyProfileData()
-        local function GetProfileValue(primary_key, legacy_key)
-            if Profile == nil then
-                return nil
-            end
+    local scale_ratio = type(data.scale_ratio) == "number" and data.scale_ratio or 1
+    self:ApplyScale(scale_ratio, true)
 
-            local value = Profile:GetValue(primary_key)
-            if value == nil and legacy_key ~= nil then
-                value = Profile:GetValue(legacy_key)
-            end
+    local saved_x = type(data.x) == "number" and data.x or nil
+    local saved_y = type(data.y) == "number" and data.y or nil
 
-            return value
-        end
-
-        return {
-            x = GetProfileValue(PROFILE_KEY_POS_X, LEGACY_PROFILE_KEY_POS_X),
-            y = GetProfileValue(PROFILE_KEY_POS_Y, LEGACY_PROFILE_KEY_POS_Y),
-            scale_ratio = GetProfileValue(PROFILE_KEY_SCALE_RATIO, LEGACY_PROFILE_KEY_SCALE_RATIO),
-        }
+    if saved_x == nil or saved_y == nil then
+        saved_x, saved_y = self:GetDefaultPosition(self.scale_ratio)
+    else
+        saved_x, saved_y = self:ClampPosition(saved_x, saved_y, self.scale_ratio)
     end
 
-    local function LoadLegacyState()
-        TheSim:GetPersistentString(LEGACY_CONFIG_NAME, function(legacy_load_success, legacy_str)
-            if legacy_load_success and legacy_str ~= nil and legacy_str ~= "" then
-                local data = DecodeConfigData(legacy_str)
-                if data ~= nil then
-                    ApplyConfigData(data, true)
-                    return
-                end
-            end
-
-            ApplyConfigData(LoadLegacyProfileData(), true)
-        end)
-    end
-
-    TheSim:GetPersistentString(CONFIG_NAME, function(load_success, str)
-        if load_success and str ~= nil and str ~= "" then
-            local data = DecodeConfigData(str)
-            if data ~= nil then
-                ApplyConfigData(data, false)
-                return
-            end
-        end
-
-        LoadLegacyState()
-    end)
+    self:SetPosition(saved_x, saved_y, 0)
 end
 
-function LibKxxyIntro:SaveState()
-    if TheSim == nil then
+function LibKxyyIntro:SaveState()
+    if self.config == nil then
         return
     end
 
     local x, y = self:GetPositionXYZ()
-    local payload = {
+    self.config:SaveUIState(UI_STATE_NAME, {
         version = 1,
         x = x,
         y = y,
         scale_ratio = self.scale_ratio,
-    }
-    local encoded = json.encode(payload)
-
-    if SavePersistentString ~= nil then
-        SavePersistentString(CONFIG_NAME, encoded, false)
-    else
-        TheSim:SetPersistentString(CONFIG_NAME, encoded, false, nil)
-    end
+    })
 end
 
-function LibKxxyIntro:BeginDrag(mouse_x, mouse_y)
+function LibKxyyIntro:BeginDrag(mouse_x, mouse_y)
     if self.config ~= nil and self.config:Get("lock_ui", false) then
         return
     end
@@ -303,7 +225,7 @@ function LibKxxyIntro:BeginDrag(mouse_x, mouse_y)
     self:MoveToFront()
 end
 
-function LibKxxyIntro:EndDrag(should_save)
+function LibKxyyIntro:EndDrag(should_save)
     if not self.dragging then
         return
     end
@@ -318,7 +240,7 @@ function LibKxxyIntro:EndDrag(should_save)
     end
 end
 
-function LibKxxyIntro:HandleMouseMove(x, y)
+function LibKxyyIntro:HandleMouseMove(x, y)
     if self.dragging then
         local mouse_x, mouse_y = GetTopRootMousePosition(x, y)
         local next_x = mouse_x + self.drag_offset_x
@@ -333,7 +255,7 @@ function LibKxxyIntro:HandleMouseMove(x, y)
     self.hovered = self:IsScreenPointInside(x, y)
 end
 
-function LibKxxyIntro:HandleMouseButton(button, down, x, y)
+function LibKxyyIntro:HandleMouseButton(button, down, x, y)
     if button == MOUSEBUTTON_RIGHT then
         if down then
             self:BeginDrag(x, y)
@@ -361,11 +283,11 @@ function LibKxxyIntro:HandleMouseButton(button, down, x, y)
     return false
 end
 
-function LibKxxyIntro:SetOnActivate(fn)
+function LibKxyyIntro:SetOnActivate(fn)
     self.on_activate = fn
 end
 
-function LibKxxyIntro:ShowNextFrame()
+function LibKxyyIntro:ShowNextFrame()
     self.current_frame = self.current_frame + 1
     if self.current_frame > #self.frames then
         self.current_frame = 1
@@ -376,8 +298,13 @@ function LibKxxyIntro:ShowNextFrame()
     self.image:SetSize(FRAME_WIDTH, FRAME_HEIGHT)
 end
 
-function LibKxxyIntro:OnRemoveEntity()
+function LibKxyyIntro:OnRemoveEntity()
     self:EndDrag(false)
+
+    if self.config ~= nil and self._config_load_listener ~= nil then
+        self.config:RemoveLoadListener(self._config_load_listener)
+        self._config_load_listener = nil
+    end
 
     if self.anim_task ~= nil then
         self.anim_task:Cancel()
@@ -395,4 +322,4 @@ function LibKxxyIntro:OnRemoveEntity()
     end
 end
 
-return LibKxxyIntro
+return LibKxyyIntro
