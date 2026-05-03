@@ -24,8 +24,16 @@ AddDefinition({
     name = "lock_ui",
     type = "checkbox",
     label = "锁定 UI",
-    description = "勾选后，将锁定 UI 的位置和大小",
+    description = "勾选后，将锁定 UI 的位置和大小\n非锁定状态下，右键拖拽，滚轮缩放",
     default = false,
+})
+
+AddDefinition({
+    name = "fixed_magic_wheel",
+    type = "checkbox",
+    label = "固定轮盘",
+    description = "开启后，轮盘始终在中心展开，否则在鼠标的位置展开",
+    default = true,
 })
 
 AddDefinition({
@@ -124,6 +132,10 @@ local function NormalizeValue(definition, value)
     end
 
     if definition.type == "checkbox" then
+        if value == nil then
+            return definition.default
+        end
+
         return value == true
     end
 

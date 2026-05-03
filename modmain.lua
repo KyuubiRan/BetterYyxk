@@ -85,7 +85,7 @@ local function ShowMagicWheel()
     end
 
     magic_wheel_open = true
-    active_magic_wheel:ShowWheel()
+    active_magic_wheel:ShowWheel(LibKxyyConfig:Get("fixed_magic_wheel", true))
 end
 
 local function HideMagicWheel()

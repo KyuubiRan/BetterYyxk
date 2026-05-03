@@ -173,19 +173,31 @@ function LibKxyyMagicWheel:RefreshSelection()
     end
 end
 
-function LibKxyyMagicWheel:ResetTransform()
+function LibKxyyMagicWheel:ResetTransform(fixed_position)
     local screen_width, screen_height = TheSim:GetScreenSize()
     self.screenscalefactor = GetScreenScaleFactor()
-    self:SetPosition(math.floor(screen_width * 0.5 + 0.5), math.floor(screen_height * 0.5 + 0.5), 0)
+
+    local x = math.floor(screen_width * 0.5 + 0.5)
+    local y = math.floor(screen_height * 0.5 + 0.5)
+
+    if fixed_position == false and TheInput ~= nil then
+        local mouse = TheInput:GetScreenPosition()
+        if mouse ~= nil then
+            x = mouse.x
+            y = mouse.y
+        end
+    end
+
+    self:SetPosition(x, y, 0)
     self.inst.UITransform:SetScale(START_SCALE, START_SCALE, 1)
 end
 
-function LibKxyyMagicWheel:ShowWheel()
+function LibKxyyMagicWheel:ShowWheel(fixed_position)
     if self.shown then
         return
     end
 
-    self:ResetTransform()
+    self:ResetTransform(fixed_position)
     self:ClearSelection()
     self:MoveToFront()
     self:Show()
