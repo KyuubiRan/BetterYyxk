@@ -15,8 +15,6 @@ if TheNet:IsDedicated() then
     return
 end
 
-modimport("scripts/text_constants")
-
 local LibKxyyConfig = require("libkxyy_config")
 local LibKxyyKeyListener = require("libkxyy_key_listener")
 local LibKxyyMagicData = require("libkxyy_magic_data")
