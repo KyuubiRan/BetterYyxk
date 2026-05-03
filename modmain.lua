@@ -131,6 +131,26 @@ local function RegisterKeyActions()
             end
         end,
     })
+
+    LibKxyyKeyListener:RegisterAction("repeat_nilxin_skill", {
+        key = LibKxyyConfig:Get("repeat_nilxin_skill_hotkey", -1),
+        on_down = function()
+            local api = GetYyxkApi()
+            if player_active and api ~= nil then
+                api:RepeatLastSkill()
+            end
+        end,
+    })
+
+    LibKxyyKeyListener:RegisterAction("locked_repeat_nilxin_skill", {
+        key = LibKxyyConfig:Get("locked_repeat_nilxin_skill_hotkey", -1),
+        on_down = function()
+            local api = GetYyxkApi()
+            if player_active and api ~= nil then
+                api:ToggleLockedRepeatSkill()
+            end
+        end,
+    })
 end
 
 local function RegisterConfigListener()
@@ -153,6 +173,14 @@ local function RegisterConfigListener()
             LibKxyyKeyListener:SetActionKey("summon_shadow_chest", changed.summon_shadow_chest_hotkey)
         end
 
+        if changed.repeat_nilxin_skill_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("repeat_nilxin_skill", changed.repeat_nilxin_skill_hotkey)
+        end
+
+        if changed.locked_repeat_nilxin_skill_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("locked_repeat_nilxin_skill", changed.locked_repeat_nilxin_skill_hotkey)
+        end
+
         if IsMagicWheelOptionChanged(changed) then
             RefreshMagicWheelOptions()
         end
@@ -163,6 +191,8 @@ local function ApplyConfigToRuntime()
     LibKxyyKeyListener:SetActionKey("magic_wheel", LibKxyyConfig:Get("magic_wheel_hotkey"))
     LibKxyyKeyListener:SetActionKey("wanda_teleport_ui", LibKxyyConfig:Get("wanda_teleport_ui_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("summon_shadow_chest", LibKxyyConfig:Get("summon_shadow_chest_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("repeat_nilxin_skill", LibKxyyConfig:Get("repeat_nilxin_skill_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("locked_repeat_nilxin_skill", LibKxyyConfig:Get("locked_repeat_nilxin_skill_hotkey", -1))
     RefreshMagicWheelOptions()
 end
 

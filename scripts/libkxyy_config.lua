@@ -45,6 +45,22 @@ AddDefinition({
 })
 
 AddDefinition({
+    name = "repeat_nilxin_skill_hotkey",
+    type = "key",
+    label = "快捷重复施法",
+    description = "按下重复释放上次选择的魔法",
+    default = -1,
+})
+
+AddDefinition({
+    name = "locked_repeat_nilxin_skill_hotkey",
+    type = "key",
+    label = "锁定重复施法",
+    description = "按下锁定重复释放上次选择的魔法，再按取消锁定",
+    default = -1,
+})
+
+AddDefinition({
     name = "wanda_teleport_ui_hotkey",
     type = "key",
     label = "一时之间",

@@ -1,6 +1,18 @@
 local API = {
 }
 
+local NILXIN_SKILL_LIST = {
+    water = "水",
+    fire = "火",
+    ice = "冰",
+    lightning = "电",
+    wind = "风",
+    space = "空",
+    moon = "月",
+    shadow = "暗",
+}
+local LOCKED_REPEAT_INTERVAL = 0.1
+
 API.__index = API
 
 function API:IsYyxkPlayer(inst)
@@ -42,8 +54,19 @@ function API:AttachToPlayer(inst)
     return player_api
 end
 
-function API:_OnSetNilSkill()
+function API:_OnSetNilSkill(skillKey)
+    if NILXIN_SKILL_LIST[skillKey] == nil then
+        return
+    end
 
+    if self._locked_repeat_task ~= nil
+        and not self._locked_repeat_casting
+        and self._locked_repeat_skill_key ~= skillKey then
+        self._locked_repeat_skill_key = skillKey
+        self:Say("切换锁定施法: " .. NILXIN_SKILL_LIST[skillKey])
+    end
+
+    self._last_nilxin_skill_key = skillKey
 end
 
 function API:InitHooks()
@@ -168,6 +191,77 @@ end
 
 function API:SetSkill(skillKey)
     return self:SendToServer("setNilSkill", skillKey)
+end
+
+function API:RepeatLastSkill()
+    local skillKey = self._last_nilxin_skill_key
+    local skillName = skillKey ~= nil and NILXIN_SKILL_LIST[skillKey] or nil
+
+    if skillName == nil then
+        self:Say("没有选择任何魔法")
+        return false
+    end
+
+    if self:SetSkill(skillKey) then
+        self:Say("快捷施法: " .. skillName)
+        return true
+    end
+
+    return false
+end
+
+function API:StartLockedRepeatSkill()
+    local skillKey = self._last_nilxin_skill_key
+    local skillName = skillKey ~= nil and NILXIN_SKILL_LIST[skillKey] or nil
+
+    if skillName == nil then
+        self:Say("没有选择任何魔法")
+        return false
+    end
+
+    if self._locked_repeat_task ~= nil then
+        self:StopLockedRepeatSkill(false)
+    end
+
+    self._locked_repeat_skill_key = skillKey
+    self:Say("锁定施法: " .. skillName)
+
+    self._locked_repeat_task = self.inst:DoPeriodicTask(LOCKED_REPEAT_INTERVAL, function()
+        if not self:IsLocalYyxkPlayer(self.inst) then
+            self:StopLockedRepeatSkill(false)
+            return
+        end
+
+        self._locked_repeat_casting = true
+        self:SetSkill(self._locked_repeat_skill_key)
+        self._locked_repeat_casting = false
+    end)
+
+    return true
+end
+
+function API:StopLockedRepeatSkill(showMessage)
+    if self._locked_repeat_task ~= nil then
+        self._locked_repeat_task:Cancel()
+        self._locked_repeat_task = nil
+    end
+
+    self._locked_repeat_skill_key = nil
+    self._locked_repeat_casting = false
+    self:SetSkill(nil)
+
+    if showMessage then
+        self:Say("取消锁定施法")
+    end
+end
+
+function API:ToggleLockedRepeatSkill()
+    if self._locked_repeat_task ~= nil then
+        self:StopLockedRepeatSkill(true)
+        return false
+    end
+
+    return self:StartLockedRepeatSkill()
 end
 
 function API:ToggleWandaTeleportUi()
