@@ -1,4 +1,3 @@
-local Image = require("widgets/image")
 local Text = require("widgets/text")
 local Widget = require("widgets/widget")
 local TEMPLATES = require("widgets/redux/templates")
@@ -10,11 +9,11 @@ local PANEL_WIDTH = 320
 local PANEL_HEIGHT = 430
 local ITEM_HEIGHT = 40
 local ITEM_WIDTH = PANEL_WIDTH - 46
-local VISIBLE_ROWS = 7
+local VISIBLE_ROWS = 9
 local CONTENT_ROOT_Y = 20
-local SECTION_TITLE_Y = 122
-local SECTION_DIVIDER_Y = 145
-local OPTIONS_PANEL_Y = -50
+local OPTIONS_PANEL_Y = -42
+local SCROLLBAR_OFFSET = 28
+local SCROLLBAR_HEIGHT_OFFSET = -52
 
 local LibKxyyConfigPanel = Class(Widget, function(self, owner)
     Widget._ctor(self, "LibKxyyConfigPanel")
@@ -50,14 +49,6 @@ local LibKxyyConfigPanel = Class(Widget, function(self, owner)
     self.content_root = self.dialog:InsertWidget(Widget("content_root"))
     self.content_root:SetPosition(0, CONTENT_ROOT_Y, 0)
 
-    self.section_title = self.content_root:AddChild(Text(HEADERFONT, 22, "当前配置"))
-    self.section_title:SetColour(UICOLOURS.GOLD_SELECTED)
-    self.section_title:SetPosition(0, SECTION_TITLE_Y, 0)
-
-    self.section_divider = self.content_root:AddChild(Image("images/global_redux.xml", "item_divider.tex"))
-    self.section_divider:SetPosition(0, SECTION_DIVIDER_Y, 0)
-    self.section_divider:SetSize(PANEL_WIDTH - 54, 5)
-
     self.optionspanel = self.content_root:AddChild(Widget("optionspanel"))
     self.optionspanel:SetPosition(0, OPTIONS_PANEL_Y, 0)
 
@@ -77,8 +68,8 @@ local LibKxyyConfigPanel = Class(Widget, function(self, owner)
         num_columns = 1,
         item_ctor_fn = ScrollWidgetsCtor,
         apply_fn = ApplyDataToWidget,
-        scrollbar_offset = 10,
-        scrollbar_height_offset = -10,
+        scrollbar_offset = SCROLLBAR_OFFSET,
+        scrollbar_height_offset = SCROLLBAR_HEIGHT_OFFSET,
     }))
     self.options_scroll_list:SetPosition(-2, -4, 0)
 

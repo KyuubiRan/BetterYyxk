@@ -95,6 +95,22 @@ function LibKxyyMagicWheel:BuildBadges()
     end
 end
 
+function LibKxyyMagicWheel:ClearBadges()
+    self:ClearSelection()
+
+    for _, badge in ipairs(self.badges) do
+        badge:Kill()
+    end
+
+    self.badges = {}
+end
+
+function LibKxyyMagicWheel:SetOptions(options)
+    self.options = options or {}
+    self:ClearBadges()
+    self:BuildBadges()
+end
+
 function LibKxyyMagicWheel:SetOnSelect(fn)
     self.on_select = fn
 end

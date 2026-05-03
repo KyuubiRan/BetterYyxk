@@ -1,24 +1,56 @@
 local json = require("json")
+local MagicData = require("libkxyy_magic_data")
 
 local CONFIG_NAME = "libkxyy_config"
 local DEFAULT_MAGIC_WHEEL_HOTKEY = rawget(_G, "KEY_G") or 71
+local MAGIC_ENABLED_PREFIX = "magic_wheel_enabled_"
 
-local DEFINITIONS = {
-    {
-        name = "lock_ui",
+local DEFINITIONS = {}
+
+local function GetMagicEnabledName(key)
+    return MAGIC_ENABLED_PREFIX .. key
+end
+
+local function AddDefinition(definition)
+    DEFINITIONS[#DEFINITIONS + 1] = definition
+end
+
+AddDefinition({
+    type = "section",
+    label = "基本配置",
+})
+
+AddDefinition({
+    name = "lock_ui",
+    type = "checkbox",
+    label = "锁定 UI",
+    description = "勾选后，将锁定 UI 的位置和大小",
+    default = false,
+})
+
+AddDefinition({
+    name = "magic_wheel_hotkey",
+    type = "key",
+    label = "轮盘按键",
+    description = "按住打开魔法轮盘，松开选择当前指向的魔法",
+    default = DEFAULT_MAGIC_WHEEL_HOTKEY,
+})
+
+AddDefinition({
+    type = "section",
+    label = "轮盘魔法配置",
+})
+
+for _, option in ipairs(MagicData) do
+    AddDefinition({
+        name = GetMagicEnabledName(option.key),
         type = "checkbox",
-        label = "锁定 UI",
-        description = "勾选后，将锁定 UI 的位置和大小",
-        default = false,
-    },
-    {
-        name = "magic_wheel_hotkey",
-        type = "key",
-        label = "轮盘按键",
-        description = "按住打开魔法轮盘，松开选择当前指向的魔法",
-        default = DEFAULT_MAGIC_WHEEL_HOTKEY,
-    },
-}
+        label = option.label,
+        description = "勾选后，在魔法轮盘中显示「" .. option.label .. "」",
+        default = true,
+        magic_key = option.key,
+    })
+end
 
 local ModConfig = {
     values = {},
@@ -112,11 +144,23 @@ function ModConfig:GetDefinitions()
 end
 
 function ModConfig:GetDefinition(name)
+    if name == nil then
+        return nil
+    end
+
     for _, definition in ipairs(DEFINITIONS) do
         if definition.name == name then
             return definition
         end
     end
+end
+
+function ModConfig:GetMagicEnabledName(key)
+    return GetMagicEnabledName(key)
+end
+
+function ModConfig:IsMagicEnabled(key)
+    return self:Get(GetMagicEnabledName(key), true) == true
 end
 
 function ModConfig:Get(name, fallback)
@@ -172,7 +216,9 @@ function ModConfig:Load()
     self.load_started = true
 
     for _, definition in ipairs(DEFINITIONS) do
-        self.values[definition.name] = definition.default
+        if definition.name ~= nil then
+            self.values[definition.name] = definition.default
+        end
     end
 
     if TheSim == nil then
@@ -192,10 +238,12 @@ function ModConfig:Load()
 
                 if type(data.values) == "table" then
                     for _, definition in ipairs(DEFINITIONS) do
-                        local value = NormalizeValue(definition, data.values[definition.name])
-                        if value ~= nil and self.values[definition.name] ~= value then
-                            self.values[definition.name] = value
-                            changed[definition.name] = value
+                        if definition.name ~= nil then
+                            local value = NormalizeValue(definition, data.values[definition.name])
+                            if value ~= nil and self.values[definition.name] ~= value then
+                                self.values[definition.name] = value
+                                changed[definition.name] = value
+                            end
                         end
                     end
                 end

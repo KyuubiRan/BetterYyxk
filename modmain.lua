@@ -31,6 +31,34 @@ LibKxyyKeyListener:Init()
 local active_magic_wheel = nil
 local magic_wheel_open = false
 
+local function GetEnabledMagicOptions()
+    local options = {}
+
+    for _, option in ipairs(LibKxyyMagicData) do
+        if LibKxyyConfig:IsMagicEnabled(option.key) then
+            options[#options + 1] = option
+        end
+    end
+
+    return options
+end
+
+local function IsMagicWheelOptionChanged(changed)
+    for _, option in ipairs(LibKxyyMagicData) do
+        if changed[LibKxyyConfig:GetMagicEnabledName(option.key)] ~= nil then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function RefreshMagicWheelOptions()
+    if active_magic_wheel ~= nil then
+        active_magic_wheel:SetOptions(GetEnabledMagicOptions())
+    end
+end
+
 local function ShowMagicWheel()
     if active_magic_wheel == nil then
         return
@@ -67,6 +95,10 @@ LibKxyyConfig:AddListener(function(changed)
     if changed.magic_wheel_hotkey ~= nil then
         LibKxyyKeyListener:SetActionKey("magic_wheel", changed.magic_wheel_hotkey)
     end
+
+    if IsMagicWheelOptionChanged(changed) then
+        RefreshMagicWheelOptions()
+    end
 end)
 
 AddClassPostConstruct("widgets/controls", function(self)
@@ -76,7 +108,7 @@ AddClassPostConstruct("widgets/controls", function(self)
 
     self.libkxyy_config_panel = self.top_root:AddChild(LibKxyyConfigPanel(self.owner))
     self.libkxyy_intro = self.top_root:AddChild(LibKxyyIntro(self.owner))
-    self.libkxyy_magic_wheel = self:AddChild(LibKxyyMagicWheel(LibKxyyMagicData))
+    self.libkxyy_magic_wheel = self:AddChild(LibKxyyMagicWheel(GetEnabledMagicOptions()))
     active_magic_wheel = self.libkxyy_magic_wheel
 
     self.libkxyy_magic_wheel:SetOnSelect(function(option)
