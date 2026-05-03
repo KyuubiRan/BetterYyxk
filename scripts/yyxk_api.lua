@@ -44,6 +44,24 @@ function API:IsStaffEquipped()
     return weapon.prefab == "nilxin_scepter"
 end
 
+function API:CanChangeStaffMagic(showReason)
+    if not self:IsNilxin() then
+        if showReason then
+            self:Say("需要切换到空心")
+        end
+        return false
+    end
+
+    if not self:IsStaffEquipped() then
+        if showReason then
+            self:Say("需要装备魔杖")
+        end
+        return false
+    end
+
+    return true
+end
+
 function API:IsSwordEquipped()
     local weapon = self:GetEquippedWeapon()
     if weapon == nil then return false end
@@ -54,31 +72,16 @@ end
 function API:SetWeaponMagic(magicKey, magicName)
     local replica = self:GetYyxkReplica()
     if replica == nil then return end
-    if not self:IsNilxin() then
-        self:Say("需要切换到空心")
-    end
 
-    if self:IsStaffEquipped() then
-        replica:ToServer("magicWandSpelltype", magicKey)
-        self:Say("切换: " .. magicName)
-    else
-        self:Say("需要装备魔杖")
-    end
+    replica:ToServer("magicWandSpelltype", magicKey)
+    self:Say("切换: " .. magicName)
 end
 
 function API:SetSkill(skillKey, skillName)
     local replica = self:GetYyxkReplica()
     if replica == nil then return end
-    if not self:IsNilxin() then
-        self:Say("需要切换到空心")
-    end
 
-    if self:IsStaffEquipped() then
-        replica:ToServer("setNilSkill", skillKey)
-        -- self:Say("切换: " .. skillName)
-    else
-        self:Say("需要装备魔杖")
-    end
+    replica:ToServer("setNilSkill", skillKey)
 end
 
 return API

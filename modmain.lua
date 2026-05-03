@@ -29,12 +29,18 @@ LibKxyyConfig:Load()
 LibKxyyKeyListener:Init()
 
 local active_magic_wheel = nil
+local magic_wheel_open = false
 
 local function ShowMagicWheel()
     if active_magic_wheel == nil then
         return
     end
 
+    if not YyxkApi:CanChangeStaffMagic(true) then
+        return
+    end
+
+    magic_wheel_open = true
     active_magic_wheel:ShowWheel()
 end
 
@@ -43,6 +49,11 @@ local function HideMagicWheel()
         return
     end
 
+    if not magic_wheel_open then
+        return
+    end
+
+    magic_wheel_open = false
     active_magic_wheel:HideWheel(true)
 end
 
