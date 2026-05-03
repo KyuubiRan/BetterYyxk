@@ -6,6 +6,7 @@ local KEY_NONE = -1
 local LABEL_LEFT = -103
 local CHECKBOX_LABEL_WIDTH_OFFSET = 120
 local KEY_LABEL_WIDTH_OFFSET = 188
+local KEY_TOOLTIP = "点击设置按键，点击后右键取消设置按键"
 local KEY_NAME_MAP = {
     [KEY_NONE] = "None",
 }
@@ -91,6 +92,24 @@ end
 
 local function IsClearKeyControl(control, down)
     return not down and CONTROL_SECONDARY ~= nil and control == CONTROL_SECONDARY
+end
+
+local function SetWidgetHoverText(widget, text, options)
+    if widget ~= nil and widget.SetHoverText ~= nil then
+        widget:SetHoverText(text or "", options)
+    end
+end
+
+local function SetWidgetTreeHoverText(widget, text, options)
+    SetWidgetHoverText(widget, text, options)
+
+    if widget == nil or widget.children == nil then
+        return
+    end
+
+    for _, child in pairs(widget.children) do
+        SetWidgetTreeHoverText(child, text, options)
+    end
 end
 
 local LibKxyyConfigItem = Class(Widget, function(self, panel, width, height)
@@ -192,9 +211,19 @@ function LibKxyyConfigItem:SetTooltip(text)
         bg = true,
     }
 
-    self.bg:SetHoverText(text or "", options)
-    self.checkbox:SetHoverText(text or "", options)
-    self.key_button:SetHoverText(text or "", options)
+    SetWidgetHoverText(self.bg, text, options)
+end
+
+function LibKxyyConfigItem:SetRightControlTooltip(text)
+    local options = {
+        font = CHATFONT,
+        offset_y = -42,
+        colour = UICOLOURS.GOLD,
+        bg = true,
+    }
+
+    SetWidgetTreeHoverText(self.checkbox, "", options)
+    SetWidgetTreeHoverText(self.key_button, text, options)
 end
 
 function LibKxyyConfigItem:RefreshKeyDisplay()
@@ -220,6 +249,7 @@ function LibKxyyConfigItem:SetData(definition)
     self:Show()
     self.label:SetString(definition.label or definition.name or "未命名配置")
     self:SetTooltip(definition.description)
+    self:SetRightControlTooltip(nil)
     self.bg:Show()
     self.label:SetColour(UICOLOURS.GOLD_SELECTED)
     self.label:SetHAlign(ANCHOR_LEFT)
@@ -232,6 +262,7 @@ function LibKxyyConfigItem:SetData(definition)
     elseif definition.type == "key" then
         self.checkbox:Hide()
         self.key_button:Show()
+        self:SetRightControlTooltip(KEY_TOOLTIP)
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - KEY_LABEL_WIDTH_OFFSET, 28)
         self:RefreshKeyDisplay()
     elseif definition.type == "section" then
