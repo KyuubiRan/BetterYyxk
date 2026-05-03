@@ -66,14 +66,29 @@ local LibKxyyIntro = Class(Widget, function(self, owner)
     self.image:SetClickable(true)
 
     self.anim_task = self.inst:DoPeriodicTask(FRAME_TIME, function()
+        if not self:IsWidgetValid() then
+            self:ReleaseRuntimeHandlers()
+            return
+        end
+
         self:ShowNextFrame()
     end)
 
     self._move_handler = TheInput:AddMoveHandler(function(x, y)
+        if not self:IsWidgetValid() then
+            self:ReleaseRuntimeHandlers()
+            return
+        end
+
         self:HandleMouseMove(x, y)
     end)
 
     self._mouse_button_handler = TheInput:AddMouseButtonHandler(function(button, down, x, y)
+        if not self:IsWidgetValid() then
+            self:ReleaseRuntimeHandlers()
+            return
+        end
+
         if self.dragging or self:IsScreenPointInside(x, y) then
             self.hovered = true
             self:HandleMouseButton(button, down, x, y)
@@ -90,6 +105,32 @@ end)
 
 function LibKxyyIntro:GetActualScale()
     return BASE_SCALE * self.scale_ratio
+end
+
+function LibKxyyIntro:IsWidgetValid()
+    return self.inst ~= nil and self.inst:IsValid()
+end
+
+function LibKxyyIntro:ReleaseRuntimeHandlers()
+    if self.config ~= nil and self._config_load_listener ~= nil then
+        self.config:RemoveLoadListener(self._config_load_listener)
+        self._config_load_listener = nil
+    end
+
+    if self.anim_task ~= nil then
+        self.anim_task:Cancel()
+        self.anim_task = nil
+    end
+
+    if self._move_handler ~= nil then
+        self._move_handler:Remove()
+        self._move_handler = nil
+    end
+
+    if self._mouse_button_handler ~= nil then
+        self._mouse_button_handler:Remove()
+        self._mouse_button_handler = nil
+    end
 end
 
 function LibKxyyIntro:GetScaledDimensions(scale_ratio)
@@ -122,8 +163,16 @@ function LibKxyyIntro:GetDefaultPosition(scale_ratio)
 end
 
 function LibKxyyIntro:IsScreenPointInside(screen_x, screen_y)
+    if not self:IsWidgetValid() then
+        return false
+    end
+
     local local_x, local_y = GetTopRootMousePosition(screen_x, screen_y)
     local pos_x, pos_y = self:GetPositionXYZ()
+    if pos_x == nil or pos_y == nil then
+        return false
+    end
+
     local half_width, half_height = self:GetScaledDimensions()
     half_width = half_width * 0.5
     half_height = half_height * 0.5
@@ -241,6 +290,11 @@ function LibKxyyIntro:EndDrag(should_save)
 end
 
 function LibKxyyIntro:HandleMouseMove(x, y)
+    if not self:IsWidgetValid() or not self.shown then
+        self.hovered = false
+        return
+    end
+
     if self.dragging then
         local mouse_x, mouse_y = GetTopRootMousePosition(x, y)
         local next_x = mouse_x + self.drag_offset_x
@@ -256,6 +310,10 @@ function LibKxyyIntro:HandleMouseMove(x, y)
 end
 
 function LibKxyyIntro:HandleMouseButton(button, down, x, y)
+    if not self:IsWidgetValid() or not self.shown then
+        return false
+    end
+
     if button == MOUSEBUTTON_RIGHT then
         if down then
             self:BeginDrag(x, y)
@@ -300,26 +358,7 @@ end
 
 function LibKxyyIntro:OnRemoveEntity()
     self:EndDrag(false)
-
-    if self.config ~= nil and self._config_load_listener ~= nil then
-        self.config:RemoveLoadListener(self._config_load_listener)
-        self._config_load_listener = nil
-    end
-
-    if self.anim_task ~= nil then
-        self.anim_task:Cancel()
-        self.anim_task = nil
-    end
-
-    if self._move_handler ~= nil then
-        self._move_handler:Remove()
-        self._move_handler = nil
-    end
-
-    if self._mouse_button_handler ~= nil then
-        self._mouse_button_handler:Remove()
-        self._mouse_button_handler = nil
-    end
+    self:ReleaseRuntimeHandlers()
 end
 
 return LibKxyyIntro

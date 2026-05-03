@@ -45,6 +45,14 @@ AddDefinition({
 })
 
 AddDefinition({
+    name = "summon_shadow_chest_hotkey",
+    type = "key",
+    label = "召唤小影",
+    description = "按下快速召唤小影",
+    default = -1,
+})
+
+AddDefinition({
     type = "section",
     label = "轮盘魔法配置",
 })

@@ -1,40 +1,133 @@
 local API = {
 }
 
-function API:GetYyxkReplica()
-    if API._yyxk_replica ~= nil then
-        return API._yyxk_replica
-    end
+API.__index = API
 
-    if ThePlayer == nil or ThePlayer.prefab ~= "yyxk" then
+function API:IsYyxkPlayer(inst)
+    return inst ~= nil and inst.prefab == "yyxk"
+end
+
+function API:IsLocalYyxkPlayer(inst)
+    return self:IsYyxkPlayer(inst) and ThePlayer ~= nil and inst == ThePlayer
+end
+
+function API:GetCurrent()
+    return ThePlayer ~= nil and ThePlayer._YyxkApi or nil
+end
+
+function API:AttachToPlayer(inst)
+    if not self:IsLocalYyxkPlayer(inst) then
         return nil
     end
 
-    API._yyxk_replica = ThePlayer.replica.yyxk
+    if inst._YyxkApi ~= nil then
+        if inst._YyxkApi:InitHooks() then
+            return inst._YyxkApi
+        end
 
-    return API._yyxk_replica
+        return nil
+    end
+
+    local player_api = setmetatable({
+        inst = inst,
+    }, self)
+
+    inst._YyxkApi = player_api
+
+    if not player_api:InitHooks() then
+        inst._YyxkApi = nil
+        return nil
+    end
+
+    return player_api
+end
+
+function API:_OnSetNilSkill()
+
+end
+
+function API:InitHooks()
+    if not self:IsLocalYyxkPlayer(self.inst) then
+        return false
+    end
+
+    self._yyxk_replica = nil
+
+    local replica = self:GetYyxkReplica()
+    if replica == nil then return false end
+
+    if self._hooked_replica == replica then
+        return true
+    end
+
+    local original_to_server = replica._libkxyy_original_to_server or replica.ToServer
+    replica._libkxyy_original_to_server = original_to_server
+    self._ToServerFn = original_to_server
+    self._hooked_replica = replica
+
+    local player_api = self
+    replica.ToServer = function(self, fnName, ...)
+        if fnName == "setNilSkill" then
+            player_api:_OnSetNilSkill(...)
+        end
+
+        return original_to_server(self, fnName, ...)
+    end
+
+    return true
+end
+
+function API:GetYyxkReplica()
+    local inst = self.inst
+    if not self:IsLocalYyxkPlayer(inst) then
+        return nil
+    end
+
+    if self._yyxk_replica ~= nil then
+        return self._yyxk_replica
+    end
+
+    self._yyxk_replica = inst.replica ~= nil and inst.replica.yyxk or nil
+
+    return self._yyxk_replica
+end
+
+function API:SendToServer(fnName, ...)
+    if not self:IsLocalYyxkPlayer(self.inst) then return false end
+
+    local replica = self:GetYyxkReplica()
+    if replica == nil then return false end
+
+    if self._ToServerFn == nil then return false end
+
+    self._ToServerFn(replica, fnName, ...)
+    return true
 end
 
 function API:Say(text)
-    ThePlayer.components.talker:Say(text)
+    local inst = self.inst
+    if inst ~= nil and inst.components ~= nil and inst.components.talker ~= nil then
+        inst.components.talker:Say(text)
+    end
 end
 
 function API:GetEquippedWeapon()
-    if ThePlayer == nil then return nil end
+    local inst = self.inst
+    if not self:IsLocalYyxkPlayer(inst) then return nil end
 
-    return ThePlayer.replica.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+    return inst.replica.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
 end
 
 function API:IsYeyu()
-    return ThePlayer:HasTag("yeyu")
+    return self.inst ~= nil and self.inst:HasTag("yeyu")
 end
 
 function API:IsNilxin()
-    return ThePlayer:HasTag("nilxin")
+    return self.inst ~= nil and self.inst:HasTag("nilxin")
 end
 
 function API:IsSisterSummoned()
-    return ThePlayer.yyxk_isjiemei == true
+    return self.inst ~= nil and self.inst.yyxk_isjiemei == true
 end
 
 function API:IsStaffEquipped()
@@ -69,24 +162,17 @@ function API:IsSwordEquipped()
     return weapon.prefab == "yeyu_sword"
 end
 
-function API:SetWeaponMagic(magicKey, magicName)
-    local replica = self:GetYyxkReplica()
-    if replica == nil then return end
-
-    replica:ToServer("magicWandSpelltype", magicKey)
-    self:Say("切换: " .. magicName)
+function API:SetWeaponMagic(magicKey)
+    return self:SendToServer("magicWandSpelltype", magicKey)
 end
 
-function API:SetSkill(skillKey, skillName)
-    local replica = self:GetYyxkReplica()
-    if replica == nil then return end
-
-    replica:ToServer("setNilSkill", skillKey)
+function API:SetSkill(skillKey)
+    return self:SendToServer("setNilSkill", skillKey)
 end
 
 function API:ToggleWandaTeleportUi()
-    local inst = ThePlayer
-    if inst == nil then return end
+    local inst = self.inst
+    if not self:IsLocalYyxkPlayer(inst) then return end
 
     local hud = inst.HUD
     local controls = hud ~= nil and hud.controls or nil
@@ -111,6 +197,10 @@ function API:ToggleWandaTeleportUi()
         yyxk10:Show()
         yyxk10:MoveToFront()
     end
+end
+
+function API:SummonShadowChest()
+    return self:SendToServer("cykjccFN")
 end
 
 return API
