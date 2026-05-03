@@ -4,9 +4,6 @@ GLOBAL.setmetatable(env, {
     end,
 })
 
-PrefabFiles = {
-}
-
 Assets = {
     Asset("ATLAS", "images/uiwidget_anim.xml"),
     Asset("IMAGE", "images/uiwidget_anim.tex"),
@@ -26,6 +23,7 @@ local LibKxyyMagicData = require("libkxyy_magic_data")
 local LibKxyyConfigPanel = require("widgets/libkxyy_config_panel")
 local LibKxyyIntro = require("widgets/libkxyy_intro")
 local LibKxyyMagicWheel = require("widgets/libkxyy_magic_wheel")
+local YyxkApi = require("yyxk_api")
 
 LibKxyyConfig:Load()
 LibKxyyKeyListener:Init()
@@ -71,7 +69,7 @@ AddClassPostConstruct("widgets/controls", function(self)
     active_magic_wheel = self.libkxyy_magic_wheel
 
     self.libkxyy_magic_wheel:SetOnSelect(function(option)
-        print(string.format("[better_yyxk] selected magic: %s (%s)", tostring(option.key), tostring(option.label)))
+        YyxkApi:SetWeaponMagic(option.key, option.label)
     end)
 
     self.libkxyy_intro:SetOnActivate(function()
@@ -80,5 +78,3 @@ AddClassPostConstruct("widgets/controls", function(self)
         end
     end)
 end)
-
--- 客户端功能入口从这里继续扩展。
