@@ -84,4 +84,33 @@ function API:SetSkill(skillKey, skillName)
     replica:ToServer("setNilSkill", skillKey)
 end
 
+function API:ToggleWandaTeleportUi()
+    local inst = ThePlayer
+    if inst == nil then return end
+
+    local hud = inst.HUD
+    local controls = hud ~= nil and hud.controls or nil
+    local yyxkui = controls ~= nil and controls.yyxkui or nil
+    local yyxk = yyxkui ~= nil and yyxkui.yyxk or nil
+    local yyxk10 = yyxk ~= nil and yyxk.yyxk10 or nil
+
+    if yyxkui == nil or yyxk10 == nil then
+        return
+    end
+
+    if yyxk10.shown then
+        yyxk10:Hide()
+        if yyxk.shown then
+            yyxk:Hide()
+        end
+    else
+        if not yyxk.shown then
+            yyxk:Show()
+            yyxk:MoveToFront()
+        end
+        yyxk10:Show()
+        yyxk10:MoveToFront()
+    end
+end
+
 return API

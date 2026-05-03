@@ -91,9 +91,20 @@ LibKxyyKeyListener:RegisterAction("magic_wheel", {
     on_up = HideMagicWheel,
 })
 
+LibKxyyKeyListener:RegisterAction("wanda_teleport_ui", {
+    key = LibKxyyConfig:Get("wanda_teleport_ui_hotkey", -1),
+    on_down = function()
+        YyxkApi:ToggleWandaTeleportUi()
+    end,
+})
+
 LibKxyyConfig:AddListener(function(changed)
     if changed.magic_wheel_hotkey ~= nil then
         LibKxyyKeyListener:SetActionKey("magic_wheel", changed.magic_wheel_hotkey)
+    end
+
+    if changed.wanda_teleport_ui_hotkey ~= nil then
+        LibKxyyKeyListener:SetActionKey("wanda_teleport_ui", changed.wanda_teleport_ui_hotkey)
     end
 
     if IsMagicWheelOptionChanged(changed) then

@@ -37,6 +37,14 @@ AddDefinition({
 })
 
 AddDefinition({
+    name = "wanda_teleport_ui_hotkey",
+    type = "key",
+    label = "一时之间",
+    description = "按下快速开关一时之间 UI",
+    default = -1,
+})
+
+AddDefinition({
     type = "section",
     label = "轮盘魔法配置",
 })
