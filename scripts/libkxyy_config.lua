@@ -45,6 +45,14 @@ AddDefinition({
 })
 
 AddDefinition({
+    name = "quick_switch_previous_magic",
+    type = "checkbox",
+    label = "短按切换魔法",
+    description = "开启后，短按轮盘按键会在当前魔法和上一个魔法之间切换",
+    default = true,
+})
+
+AddDefinition({
     name = "repeat_nilxin_skill_hotkey",
     type = "key",
     label = "快捷重复施法",

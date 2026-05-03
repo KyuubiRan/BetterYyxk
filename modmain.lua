@@ -151,7 +151,9 @@ local function HideMagicWheel()
     magic_wheel_down_time = nil
     magic_wheel_open = false
 
-    if press_time ~= nil and press_time < MAGIC_WHEEL_SHORT_PRESS_TIME then
+    if LibKxyyConfig:Get("quick_switch_previous_magic", true)
+        and press_time ~= nil
+        and press_time < MAGIC_WHEEL_SHORT_PRESS_TIME then
         active_magic_wheel:HideWheel(false)
         QuickSwitchLastWeaponMagic()
         return
