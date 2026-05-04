@@ -1,11 +1,14 @@
 local Text = require("widgets/text")
 local Widget = require("widgets/widget")
+local TextEdit = require("widgets/textedit")
 local TEMPLATES = require("widgets/redux/templates")
 
 local KEY_NONE = -1
 local LABEL_LEFT = -103
 local CHECKBOX_LABEL_WIDTH_OFFSET = 120
 local KEY_LABEL_WIDTH_OFFSET = 188
+local NUMBER_LABEL_WIDTH_OFFSET = 188
+local NUMBER_SPINNER_WIDTH = 112
 local KEY_TOOLTIP = "点击设置按键，点击后右键取消设置按键"
 local KEY_NAME_MAP = {
     [KEY_NONE] = "None",
@@ -90,6 +93,36 @@ local function SetLeftAlignedTextRegion(text, left, width, height)
     text:SetPosition(left + width * 0.5, 0, 0)
 end
 
+local function FormatNumber(value)
+    value = tonumber(value) or 0
+    if math.floor(value) == value then
+        return tostring(value)
+    end
+
+    local text = string.format("%.6f", value)
+    text = string.gsub(text, "0+$", "")
+    text = string.gsub(text, "%.$", "")
+    return text
+end
+
+local function MakeNumberOptions(definition)
+    local options = {}
+    local min = definition.min or definition.default or 0
+    local max = definition.max or definition.default or min
+    local step = definition.step or 1
+    local value = min
+
+    while value <= max + step * 0.1 do
+        options[#options + 1] = {
+            text = FormatNumber(value),
+            data = value,
+        }
+        value = value + step
+    end
+
+    return options
+end
+
 local function IsClearKeyControl(control, down)
     return not down and CONTROL_SECONDARY ~= nil and control == CONTROL_SECONDARY
 end
@@ -142,6 +175,64 @@ local LibKxyyConfigItem = Class(Widget, function(self, panel, width, height)
     end, "None", {92, 34}))
     self.key_button:SetPosition(width * 0.5 - 58, 0, 0)
     self.key_button:Hide()
+
+    self.number_spinner = self:AddChild(TEMPLATES.StandardSpinner({}, NUMBER_SPINNER_WIDTH, 34, CHATFONT, 22, function(data)
+        if not self.refreshing_number then
+            self:SetNumber(data)
+        end
+    end, UICOLOURS.GOLD_SELECTED))
+    self.number_spinner.text:Hide()
+    self.number_edit = self.number_spinner:AddChild(TextEdit(CHATFONT, 22, "", UICOLOURS.GOLD_SELECTED))
+    self.number_edit:SetForceEdit(true)
+    self.number_edit:SetCharacterFilter("0123456789.")
+    self.number_edit:SetRegionSize(NUMBER_SPINNER_WIDTH - 54, 28)
+    self.number_edit:SetHAlign(ANCHOR_MIDDLE)
+    self.number_edit:SetEditCursorColour(UICOLOURS.GOLD_SELECTED[1], UICOLOURS.GOLD_SELECTED[2], UICOLOURS.GOLD_SELECTED[3], UICOLOURS.GOLD_SELECTED[4])
+    self.number_edit.idle_text_color = UICOLOURS.GOLD_SELECTED
+    self.number_edit.edit_text_color = UICOLOURS.GOLD_SELECTED
+    self.number_edit:SetColour(UICOLOURS.GOLD_SELECTED[1], UICOLOURS.GOLD_SELECTED[2], UICOLOURS.GOLD_SELECTED[3], UICOLOURS.GOLD_SELECTED[4])
+    self.number_edit.OnTextEntered = function(text)
+        self:SetNumber(text)
+    end
+
+    local old_number_lose_focus = self.number_edit.OnLoseFocus
+    self.number_edit.OnLoseFocus = function(edit)
+        if old_number_lose_focus ~= nil then
+            old_number_lose_focus(edit)
+        end
+
+        if self.definition ~= nil and self.definition.type == "number" then
+            self:SetNumber(edit:GetString())
+        end
+    end
+
+    self.number_spinner.leftimage:SetOnClick(function()
+        self:StepNumber(-1)
+    end)
+    self.number_spinner.rightimage:SetOnClick(function()
+        self:StepNumber(1)
+    end)
+
+    local old_number_control = self.number_spinner.OnControl
+    self.number_spinner.OnControl = function(spinner, control, down)
+        if self.definition ~= nil
+            and self.definition.type == "number"
+            and down
+            and TheInput ~= nil then
+            if control == TheInput:ResolveVirtualControls(spinner.control_prev) then
+                self:StepNumber(-1)
+                return true
+            elseif control == TheInput:ResolveVirtualControls(spinner.control_next) then
+                self:StepNumber(1)
+                return true
+            end
+        end
+
+        return old_number_control ~= nil and old_number_control(spinner, control, down) or false
+    end
+
+    self.number_spinner:SetPosition(width * 0.5 - 58, 0, 0)
+    self.number_spinner:Hide()
 
     local old_lose_focus = self.key_button.OnLoseFocus
     self.key_button.OnLoseFocus = function(button)
@@ -224,6 +315,7 @@ function LibKxyyConfigItem:SetRightControlTooltip(text)
 
     SetWidgetTreeHoverText(self.checkbox, "", options)
     SetWidgetTreeHoverText(self.key_button, text, options)
+    SetWidgetTreeHoverText(self.number_spinner, text, options)
 end
 
 function LibKxyyConfigItem:RefreshKeyDisplay()
@@ -235,6 +327,41 @@ function LibKxyyConfigItem:RefreshKeyDisplay()
         self.key_button:SetText("按键...")
     else
         self.key_button:SetText(GetKeyDisplayName(self.panel.config:Get(self.definition.name, self.definition.default)))
+    end
+end
+
+function LibKxyyConfigItem:RefreshNumberDisplay()
+    if self.definition == nil or self.definition.type ~= "number" then
+        return
+    end
+
+    local value = self.panel.config:Get(self.definition.name, self.definition.default)
+    self.refreshing_number = true
+    self.number_spinner:SetSelected(value)
+    self.number_edit:SetString(FormatNumber(value))
+    self:RefreshNumberArrowState(value)
+    self.refreshing_number = false
+end
+
+function LibKxyyConfigItem:RefreshNumberArrowState(value)
+    if self.number_spinner == nil then
+        return
+    end
+
+    value = tonumber(value)
+    local min = self.definition ~= nil and tonumber(self.definition.min) or nil
+    local max = self.definition ~= nil and tonumber(self.definition.max) or nil
+
+    if min ~= nil and value ~= nil and value <= min then
+        self.number_spinner.leftimage:Disable()
+    else
+        self.number_spinner.leftimage:Enable()
+    end
+
+    if max ~= nil and value ~= nil and value >= max then
+        self.number_spinner.rightimage:Disable()
+    else
+        self.number_spinner.rightimage:Enable()
     end
 end
 
@@ -257,18 +384,29 @@ function LibKxyyConfigItem:SetData(definition)
     if definition.type == "checkbox" then
         self.checkbox:Show()
         self.key_button:Hide()
+        self.number_spinner:Hide()
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - CHECKBOX_LABEL_WIDTH_OFFSET, 28)
         self:SetChecked(self.panel.config:Get(definition.name, definition.default))
     elseif definition.type == "key" then
         self.checkbox:Hide()
         self.key_button:Show()
+        self.number_spinner:Hide()
         self:SetRightControlTooltip(KEY_TOOLTIP)
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - KEY_LABEL_WIDTH_OFFSET, 28)
         self:RefreshKeyDisplay()
+    elseif definition.type == "number" then
+        self.checkbox:Hide()
+        self.key_button:Hide()
+        self.number_spinner:Show()
+        self.number_spinner:SetOptions(MakeNumberOptions(definition))
+        self:SetRightControlTooltip(definition.description)
+        SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - NUMBER_LABEL_WIDTH_OFFSET, 28)
+        self:RefreshNumberDisplay()
     elseif definition.type == "section" then
         self.bg:Hide()
         self.checkbox:Hide()
         self.key_button:Hide()
+        self.number_spinner:Hide()
         self.label:SetColour(UICOLOURS.GOLD)
         self.label:SetHAlign(ANCHOR_MIDDLE)
         self.label:SetRegionSize(self.item_width, 28)
@@ -276,6 +414,7 @@ function LibKxyyConfigItem:SetData(definition)
     else
         self.checkbox:Hide()
         self.key_button:Hide()
+        self.number_spinner:Hide()
     end
 end
 
@@ -308,6 +447,35 @@ function LibKxyyConfigItem:CompleteKeyCapture(key)
 
     self.panel:BindKey(self.definition.name, key)
     self.panel:EndKeyCapture(self, true)
+end
+
+function LibKxyyConfigItem:SetNumber(value)
+    if self.definition == nil or self.definition.type ~= "number" then
+        return
+    end
+
+    self.panel:SetNumber(self.definition.name, value)
+    self:RefreshNumberDisplay()
+end
+
+function LibKxyyConfigItem:StepNumber(direction)
+    if self.definition == nil or self.definition.type ~= "number" then
+        return
+    end
+
+    direction = tonumber(direction) or 0
+    if direction == 0 then
+        return
+    end
+
+    local current = tonumber(self.panel.config:Get(self.definition.name, self.definition.default))
+        or tonumber(self.definition.default)
+        or tonumber(self.definition.min)
+        or 0
+    local step = tonumber(self.definition.step) or 1
+
+    self.panel:SetNumber(self.definition.name, current + step * direction)
+    self:RefreshNumberDisplay()
 end
 
 function LibKxyyConfigItem:Activate()

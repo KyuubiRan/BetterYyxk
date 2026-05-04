@@ -24,11 +24,15 @@ local LibKxyyMagicWheel = require("widgets/libkxyy_magic_wheel")
 local YyxkApi = require("yyxk_api")
 
 local MAGIC_WHEEL_SHORT_PRESS_TIME = 0.2
+local HONGYE_TRUE_DAMAGE_EQUIP_DELAY = 0.1
+local HONGYE_TRUE_DAMAGE_PENDING_TIMEOUT = 1
 
 local active_magic_wheel = nil
 local active_controls = nil
 local magic_wheel_open = false
 local magic_wheel_down_time = nil
+local hongye_true_damage_pending = false
+local hongye_true_damage_clear_task = nil
 local current_weapon_magic_option = nil
 local previous_weapon_magic_option = nil
 local initialized = false
@@ -162,6 +166,89 @@ local function HideMagicWheel()
     active_magic_wheel:HideWheel(true)
 end
 
+local function ClearHongyeTrueDamagePending()
+    hongye_true_damage_pending = false
+
+    if hongye_true_damage_clear_task ~= nil then
+        hongye_true_damage_clear_task:Cancel()
+        hongye_true_damage_clear_task = nil
+    end
+end
+
+local function SetHongyeTrueDamagePending(inst)
+    ClearHongyeTrueDamagePending()
+    hongye_true_damage_pending = true
+
+    if inst ~= nil and inst:IsValid() then
+        hongye_true_damage_clear_task = inst:DoTaskInTime(HONGYE_TRUE_DAMAGE_PENDING_TIMEOUT, function()
+            hongye_true_damage_clear_task = nil
+            hongye_true_damage_pending = false
+        end)
+    end
+end
+
+local function UseHongyeTrueDamage()
+    if not player_active then
+        return
+    end
+
+    local api = GetYyxkApi()
+    if api == nil then
+        return
+    end
+
+    if api:IsSwordEquipped() then
+        ClearHongyeTrueDamagePending()
+        api:UseItemInHand()
+        return
+    end
+
+    SetHongyeTrueDamagePending(api.inst)
+    if not api:FindAndEquipYeyuSword() then
+        ClearHongyeTrueDamagePending()
+    end
+end
+
+local function RegisterHongyeTrueDamageEquipListener(inst)
+    if inst == nil or inst._libkxyy_hongye_true_damage_equip_listener then
+        return
+    end
+
+    inst._libkxyy_hongye_true_damage_equip_listener = true
+    inst:ListenForEvent("equip", function(_, data)
+        if not hongye_true_damage_pending then
+            return
+        end
+
+        if data == nil
+            or data.item == nil
+            or data.item.prefab ~= "yeyu_sword"
+            or data.eslot ~= EQUIPSLOTS.HANDS then
+            return
+        end
+
+        ClearHongyeTrueDamagePending()
+        inst:DoTaskInTime(HONGYE_TRUE_DAMAGE_EQUIP_DELAY, function()
+            local api = GetYyxkApi()
+            if player_active and api ~= nil and api:IsSwordEquipped() then
+                api:UseItemInHand()
+            end
+        end)
+    end)
+end
+
+local function ToggleYeyuLungeAttraction()
+    if not player_active then
+        return
+    end
+
+    local api = GetYyxkApi()
+    if api ~= nil then
+        local enabled = api:ToggleYeyuLungeAttraction()
+        api:Say("夜雨突刺吸附: " .. (enabled and "开启" or "关闭"))
+    end
+end
+
 local function RegisterKeyActions()
     if actions_registered then
         return
@@ -214,6 +301,16 @@ local function RegisterKeyActions()
             end
         end,
     })
+
+    LibKxyyKeyListener:RegisterAction("hongye_true_damage", {
+        key = LibKxyyConfig:Get("hongye_true_damage_hotkey", -1),
+        on_down = UseHongyeTrueDamage,
+    })
+
+    LibKxyyKeyListener:RegisterAction("yeyu_lunge_attraction_toggle", {
+        key = LibKxyyConfig:Get("yeyu_lunge_attraction_toggle_hotkey", -1),
+        on_down = ToggleYeyuLungeAttraction,
+    })
 end
 
 local function RegisterConfigListener()
@@ -244,6 +341,14 @@ local function RegisterConfigListener()
             LibKxyyKeyListener:SetActionKey("locked_repeat_nilxin_skill", changed.locked_repeat_nilxin_skill_hotkey)
         end
 
+        if changed.hongye_true_damage_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("hongye_true_damage", changed.hongye_true_damage_hotkey)
+        end
+
+        if changed.yeyu_lunge_attraction_toggle_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("yeyu_lunge_attraction_toggle", changed.yeyu_lunge_attraction_toggle_hotkey)
+        end
+
         if IsMagicWheelOptionChanged(changed) then
             RefreshMagicWheelOptions()
         end
@@ -256,6 +361,8 @@ local function ApplyConfigToRuntime()
     LibKxyyKeyListener:SetActionKey("summon_shadow_chest", LibKxyyConfig:Get("summon_shadow_chest_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("repeat_nilxin_skill", LibKxyyConfig:Get("repeat_nilxin_skill_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("locked_repeat_nilxin_skill", LibKxyyConfig:Get("locked_repeat_nilxin_skill_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("hongye_true_damage", LibKxyyConfig:Get("hongye_true_damage_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("yeyu_lunge_attraction_toggle", LibKxyyConfig:Get("yeyu_lunge_attraction_toggle_hotkey", -1))
     RefreshMagicWheelOptions()
 end
 
@@ -373,6 +480,7 @@ local function InitializeForPlayer(inst)
     if api == nil then
         return false
     end
+    RegisterHongyeTrueDamageEquipListener(inst)
 
     if not initialized then
         initialized = true

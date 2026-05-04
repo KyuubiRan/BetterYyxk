@@ -86,6 +86,38 @@ AddDefinition({
 
 AddDefinition({
     type = "section",
+    label = "战斗辅助",
+})
+
+AddDefinition({
+    name = "hongye_true_damage_hotkey",
+    type = "key",
+    label = "红叶真伤",
+    description = "按下快速装备并开启红叶真伤模式",
+    default = -1,
+})
+
+AddDefinition({
+    name = "yeyu_lunge_attraction_toggle_hotkey",
+    type = "key",
+    label = "夜雨突刺吸附",
+    description = "按下切换夜雨突刺吸附开关，使你不需要精确地瞄准敌人\n注：对快速移动中的目标可能不准确",
+    default = -1,
+})
+
+AddDefinition({
+    name = "yeyu_lunge_attraction_range",
+    type = "number",
+    label = "吸附范围",
+    description = "夜雨突刺吸附的搜索范围",
+    default = 2,
+    min = 1,
+    max = 10,
+    step = 0.5,
+})
+
+AddDefinition({
+    type = "section",
     label = "轮盘魔法配置",
 })
 
@@ -113,7 +145,9 @@ local function CopyDefinitions()
     local copied = {}
 
     for i, definition in ipairs(DEFINITIONS) do
-        copied[i] = definition
+        if not definition.hidden then
+            copied[#copied + 1] = definition
+        end
     end
 
     return copied

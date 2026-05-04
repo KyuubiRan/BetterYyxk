@@ -1,3 +1,5 @@
+local LibKxyyConfig = require("libkxyy_config")
+
 local API = {
 }
 
@@ -12,8 +14,18 @@ local NILXIN_SKILL_LIST = {
     shadow = "暗",
 }
 local LOCKED_REPEAT_INTERVAL = 0.1
+local LUNGE_ATTRACTION_CANT_TAGS = { "player", "playerghost", "FX", "NOCLICK", "noattack", "notarget", "companion" }
+local LUNGE_ATTRACTION_ONEOF_TAGS = { "_combat", "_health" }
+local lunge_attraction_active = false
 
 API.__index = API
+
+local function PackArgs(...)
+    return {
+        n = select("#", ...),
+        ...
+    }
+end
 
 function API:IsYyxkPlayer(inst)
     return inst ~= nil and inst.prefab == "yyxk"
@@ -33,6 +45,9 @@ function API:AttachToPlayer(inst)
     end
 
     if inst._YyxkApi ~= nil then
+        inst._YyxkApi.inst = inst
+        setmetatable(inst._YyxkApi, self)
+
         if inst._YyxkApi:InitHooks() then
             return inst._YyxkApi
         end
@@ -69,6 +84,85 @@ function API:_OnSetNilSkill(skillKey)
     self._last_nilxin_skill_key = skillKey
 end
 
+function API:IsValidLungeAttractionTarget(target)
+    if target == nil
+        or target == self.inst
+        or not target:IsValid()
+        or target.Transform == nil then
+        return false
+    end
+
+    local health = target.replica ~= nil and target.replica.health or nil
+    if health == nil and target.components ~= nil then
+        health = target.components.health
+    end
+
+    return health ~= nil and not health:IsDead()
+end
+
+function API:GetYeyuLungeAttractionRange()
+    return LibKxyyConfig:Get("yeyu_lunge_attraction_range", 2)
+end
+
+function API:SetYeyuLungeAttractionEnabled(enabled)
+    lunge_attraction_active = enabled == true
+end
+
+function API:ToggleYeyuLungeAttraction()
+    self:SetYeyuLungeAttractionEnabled(not lunge_attraction_active)
+    return lunge_attraction_active
+end
+
+function API:IsYeyuLungeAttractionEnabled()
+    return self:IsYeyu()
+        and lunge_attraction_active == true
+end
+
+function API:FindLungeAttractionTarget(x, y, z)
+    x = tonumber(x)
+    y = tonumber(y)
+    z = tonumber(z)
+    if x == nil or y == nil or z == nil or TheSim == nil then
+        return nil
+    end
+
+    local closest = nil
+    local closest_distance_sq = nil
+    local ents = TheSim:FindEntities(
+        x,
+        y,
+        z,
+        self:GetYeyuLungeAttractionRange(),
+        nil,
+        LUNGE_ATTRACTION_CANT_TAGS,
+        LUNGE_ATTRACTION_ONEOF_TAGS
+    )
+
+    for _, target in ipairs(ents) do
+        if self:IsValidLungeAttractionTarget(target) then
+            local target_x, _, target_z = target.Transform:GetWorldPosition()
+            local distance_sq = (target_x - x) * (target_x - x) + (target_z - z) * (target_z - z)
+            if closest == nil or distance_sq < closest_distance_sq then
+                closest = target
+                closest_distance_sq = distance_sq
+            end
+        end
+    end
+
+    return closest
+end
+
+function API:GetLungeAttractedArgs(...)
+    local args = PackArgs(...)
+    local target = self:FindLungeAttractionTarget(args[1], args[2], args[3])
+    if target == nil then
+        return nil
+    end
+
+    args[1], args[2], args[3] = target.Transform:GetWorldPosition()
+    return args
+end
+
 function API:InitHooks()
     if not self:IsLocalYyxkPlayer(self.inst) then
         return false
@@ -92,6 +186,17 @@ function API:InitHooks()
     replica.ToServer = function(self, fnName, ...)
         if fnName == "setNilSkill" then
             player_api:_OnSetNilSkill(...)
+        end
+
+        if fnName == "LUNGE" then
+            if player_api:IsYeyuLungeAttractionEnabled() then
+                local attracted_args = player_api:GetLungeAttractedArgs(...)
+                if attracted_args ~= nil then
+                    return original_to_server(self, fnName, unpack(attracted_args, 1, attracted_args.n))
+                end
+            end
+
+            return original_to_server(self, fnName, ...)
         end
 
         return original_to_server(self, fnName, ...)
@@ -295,6 +400,38 @@ end
 
 function API:SummonShadowChest()
     return self:SendToServer("cykjccFN")
+end
+
+function API:FindAndEquipInInv(prefab)
+    local inst = self.inst
+    local inv = inst.replica.inventory
+
+    for i = 1, inv:GetNumSlots() do
+        local item = inv:GetItemInSlot(i)
+        if item ~= nil and item.prefab == prefab then
+            if inst.components ~= nil and inst.components.inventory ~= nil then
+                inst.components.inventory:EquipActionItem(item)
+            elseif SendRPCToServer ~= nil and RPC ~= nil and RPC.EquipActionItem ~= nil then
+                SendRPCToServer(RPC.EquipActionItem, item)
+            else
+                inv:EquipActionItem(item)
+            end
+            return true
+        end
+    end
+
+    return false
+end
+
+function API:FindAndEquipYeyuSword()
+    return self:FindAndEquipInInv("yeyu_sword")
+end
+
+function API:UseItemInHand()
+    local inst = self.inst
+    local inv = inst.replica.inventory
+
+    inv:UseItemFromInvTile(inv:GetEquippedItem(EQUIPSLOTS.HANDS))
 end
 
 return API

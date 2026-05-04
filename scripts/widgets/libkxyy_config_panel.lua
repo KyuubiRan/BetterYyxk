@@ -98,6 +98,12 @@ function LibKxyyConfigPanel:BindKey(name, key)
     })
 end
 
+function LibKxyyConfigPanel:SetNumber(name, value)
+    self.config:SaveBatch({
+        [name] = value,
+    })
+end
+
 function LibKxyyConfigPanel:BeginKeyCapture(item)
     if self.capture_item ~= nil and self.capture_item ~= item then
         self.capture_item:RefreshKeyDisplay()
