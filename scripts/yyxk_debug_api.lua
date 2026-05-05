@@ -294,10 +294,11 @@ end
 
 -- 设置技能点
 function DBGAPI:SetSkillPoints(amount)
-    amount = math.floor(tonumber(amount) or 0)
+    amount = tostring(math.floor(tonumber(amount) or 0))
 
-    local command = BuildLocalYyxkCommand([[
-local amount = ]] .. tostring(amount) .. [[
+    local command = BuildLocalYyxkCommand(
+        "local amount = " .. amount .. [[
+
 if player.replica ~= nil and player.replica.yyxk ~= nil then
     player.replica.yyxk.skillspoint = amount
 end
