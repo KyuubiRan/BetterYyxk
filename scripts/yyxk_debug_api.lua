@@ -1,11 +1,36 @@
 local DBGAPI = {
     status = {
         inf_mana = false,
+        yeyuup = {},
+        nilxinup = {},
     },
     listeners = {},
 }
 
 local DEBUG_STATUS_CLIENT_FN = "__LibKxyyDebugStatus"
+local DEBUG_STATUS_VERSION = "__v2"
+local YEYU_SKILL_KEYS = {
+    "multithrust",
+    "crazy",
+    "swordqi",
+    "sharpblade",
+    "aoe",
+    "draw",
+    "kill",
+    "agile",
+    "yeyu",
+}
+local NILXIN_SKILL_KEYS = {
+    "fire",
+    "water",
+    "ice",
+    "lightning",
+    "wind",
+    "space",
+    "moon",
+    "shadow",
+    "nilxin",
+}
 
 local function GetPlayerCommandString()
     local userid = ThePlayer ~= nil and ThePlayer.userid or nil
@@ -76,28 +101,80 @@ local function NotifyListeners(status)
     end
 end
 
-local function BuildDebugCommand(player_expr, body)
+local function ApplySkillStatus(target, source)
+    if type(source) ~= "table" then
+        return
+    end
+
+    for k in pairs(target) do
+        target[k] = nil
+    end
+
+    for k, v in pairs(source) do
+        target[k] = v == true
+    end
+end
+
+local function BuildStatusSyncBody()
+    local args = {
+        string.format("%q", DEBUG_STATUS_CLIENT_FN),
+        string.format("%q", DEBUG_STATUS_VERSION),
+        "status_debug_api.inf_mana == true",
+    }
+
+    for _, key in ipairs(YEYU_SKILL_KEYS) do
+        args[#args + 1] = "(yyxk.yeyuup ~= nil and yyxk.yeyuup." .. key .. " == true)"
+    end
+
+    for _, key in ipairs(NILXIN_SKILL_KEYS) do
+        args[#args + 1] = "(yyxk.nilxinup ~= nil and yyxk.nilxinup." .. key .. " == true)"
+    end
+
+    return [[
+if yyxk.ToClient ~= nil then
+    local status_debug_api = yyxk.__DebugApi or {}
+    yyxk:ToClient(]] .. table.concat(args, ", ") .. [[)
+end
+]]
+end
+
+local STATUS_SYNC_BODY = BuildStatusSyncBody()
+
+local DEBUG_API_INIT_BODY = [[
+if yyxk.__DebugApi == nil then
+    yyxk.__DebugApi = {
+        inf_mana = false,
+        old_DoMP = yyxk.DoMP,
+    }
+end
+if yyxk.__DebugApi.old_DoMP == nil then
+    yyxk.__DebugApi.old_DoMP = yyxk.DoMP
+end
+local debug_api = yyxk.__DebugApi
+]]
+
+local function BuildYyxkCommand(player_expr, body)
     return [[
         local player = ]] .. player_expr .. [[
         if player ~= nil
             and player.components ~= nil
             and player.components.yyxk ~= nil then
             local yyxk = player.components.yyxk
-            if yyxk.__DebugApi == nil then
-                yyxk.__DebugApi = {
-                    inf_mana = false,
-                    old_DoMP = yyxk.DoMP,
-                }
-            elseif yyxk.__DebugApi.old_DoMP == nil then
-                yyxk.__DebugApi.old_DoMP = yyxk.DoMP
-            end
-            local debug_api = yyxk.__DebugApi
     ]] .. body .. [[
-            if yyxk.ToClient ~= nil then
-                yyxk:ToClient("]] .. DEBUG_STATUS_CLIENT_FN .. [[", debug_api.inf_mana == true)
-            end
         end
     ]]
+end
+
+local function BuildLocalYyxkCommand(body)
+    return BuildYyxkCommand(GetPlayerCommandString(), body)
+end
+
+local function BuildLocalDebugApiCommand(body, sync_status)
+    return BuildLocalYyxkCommand(DEBUG_API_INIT_BODY .. body .. (sync_status and STATUS_SYNC_BODY or ""))
+end
+
+local function BuildLocalStatusCommand()
+    return BuildLocalYyxkCommand(STATUS_SYNC_BODY)
 end
 
 -- 是否管理员权限（服务器或单人）
@@ -114,10 +191,29 @@ function DBGAPI:Init(inst)
     self.inst = inst
     local replica = inst.replica ~= nil and inst.replica.yyxk or nil
     if replica ~= nil then
-        replica[DEBUG_STATUS_CLIENT_FN] = function(_, inf_mana)
-            self:ApplyStatus({
-                inf_mana = inf_mana == true,
-            })
+        replica[DEBUG_STATUS_CLIENT_FN] = function(_, version, inf_mana, ...)
+            if version == DEBUG_STATUS_VERSION then
+                local values = { ... }
+                local status = {
+                    inf_mana = inf_mana == true,
+                    yeyuup = {},
+                    nilxinup = {},
+                }
+                local index = 1
+                for _, key in ipairs(YEYU_SKILL_KEYS) do
+                    status.yeyuup[key] = values[index] == true
+                    index = index + 1
+                end
+                for _, key in ipairs(NILXIN_SKILL_KEYS) do
+                    status.nilxinup[key] = values[index] == true
+                    index = index + 1
+                end
+                self:ApplyStatus(status)
+            else
+                self:ApplyStatus({
+                    inf_mana = version == true,
+                })
+            end
         end
     end
 
@@ -147,6 +243,9 @@ function DBGAPI:ApplyStatus(status)
         self.status.inf_mana = status.inf_mana == true
     end
 
+    ApplySkillStatus(self.status.yeyuup, status.yeyuup)
+    ApplySkillStatus(self.status.nilxinup, status.nilxinup)
+
     NotifyListeners(self.status)
 end
 
@@ -155,7 +254,7 @@ function DBGAPI:GetStatus()
 end
 
 function DBGAPI:SyncStatus()
-    return self:RemoteCall(BuildDebugCommand(GetPlayerCommandString(), ""))
+    return self:RemoteCall(BuildLocalStatusCommand())
 end
 
 -- 远程调用
@@ -188,21 +287,16 @@ end
 function DBGAPI:DeltaMana(delta)
     delta = tonumber(delta) or 0
 
-    local command = [[
-        local player = ]] .. GetPlayerCommandString() .. [[
-        if player ~= nil
-            and player.components ~= nil
-            and player.components.yyxk ~= nil then
-            player.components.yyxk:DoMP(]] .. tostring(delta) .. [[, false)
-        end
-    ]]
+    local command = BuildLocalYyxkCommand([[
+            yyxk:DoMP(]] .. tostring(delta) .. [[, false)
+    ]])
 
     return self:RemoteCall(command)
 end
 
 -- 切换无限魔力
 function DBGAPI:ToggleInfMana()
-    local command = BuildDebugCommand(GetPlayerCommandString(), [[
+    local command = BuildLocalDebugApiCommand([[
             debug_api.inf_mana = not debug_api.inf_mana
             if debug_api.inf_mana then
                 yyxk.DoMP = function(component, mp, b, p)
@@ -214,7 +308,34 @@ function DBGAPI:ToggleInfMana()
             else
                 yyxk.DoMP = debug_api.old_DoMP
             end
-    ]])
+    ]], true)
+
+    return self:RemoteCall(command)
+end
+
+-- 设置技能解锁状态
+function DBGAPI:SetSkillUnlocked(group, key, enabled)
+    if group ~= "yeyuup" and group ~= "nilxinup" then
+        return false
+    end
+
+    if type(key) ~= "string" or key == "" then
+        return false
+    end
+
+    local target_enabled = enabled == true
+    local command = BuildLocalYyxkCommand([[
+local group = ]] .. string.format("%q", group) .. [[
+local key = ]] .. string.format("%q", key) .. [[
+local skills = yyxk[group]
+if type(skills) == "table" and skills[key] ~= nil then
+    local before = skills[key]
+    skills[key] = ]] .. (target_enabled and "true" or "false") .. [[
+    print("[better_yyxk debug] SetSkillUnlocked", group, key, "target=", ]] .. tostring(target_enabled) .. [[, "client_enabled_type=", ]] .. string.format("%q", type(enabled)) .. [[, "client_enabled=", ]] .. string.format("%q", tostring(enabled)) .. [[, "before=", before, "after=", skills[key], "table=", skills)
+else
+    print("[better_yyxk debug] SetSkillUnlocked missing", group, key, "skills=", skills)
+end
+    ]] .. STATUS_SYNC_BODY)
 
     return self:RemoteCall(command)
 end

@@ -64,6 +64,10 @@ local LibKxyyDebugItem = Class(Widget, function(self, panel, width, height)
     self.definition = nil
 
     self.bg = self:AddChild(TEMPLATES.ListItemBackground(width, height, function()
+        if self.definition ~= nil and self.definition.type == "toggle_action" then
+            return false
+        end
+
         return self:Execute()
     end))
     self.bg.move_on_click = false
@@ -133,8 +137,11 @@ local LibKxyyDebugItem = Class(Widget, function(self, panel, width, height)
     end, "执行", {BUTTON_WIDTH, BUTTON_HEIGHT}))
 
     self.checkbox = self:AddChild(TEMPLATES.StandardCheckbox(function()
-        self:Execute()
+        return false
     end, 34, false))
+    self.checkbox:SetOnClick(function()
+        self:Execute()
+    end)
 
     self:Layout()
 end)
@@ -236,6 +243,12 @@ end
 
 function LibKxyyDebugItem:RefreshToggleDisplay()
     if self.definition == nil or self.definition.type ~= "toggle_action" then
+        return
+    end
+
+    if self.checkbox == nil
+        or self.checkbox.inst == nil
+        or not self.checkbox.inst:IsValid() then
         return
     end
 

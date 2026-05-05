@@ -15,33 +15,85 @@ local OPTIONS_PANEL_Y = -42
 local SCROLLBAR_OFFSET = 28
 local SCROLLBAR_HEIGHT_OFFSET = -52
 
-local DEFINITIONS = {
-    {
-        type = "section",
-        label = "魔力相关",
-    },
-    {
-        name = "delta_mana",
-        type = "number_action",
-        label = "恢复魔力",
-        default = 100,
-        min = -1000,
-        max = 1000,
-        step = 100,
-        button_label = "执行",
-        action = function(value)
-            return DBGAPI:DeltaMana(value)
-        end,
-    },
-    {
-        name = "inf_mana",
-        type = "toggle_action",
-        label = "无限魔力",
-        action = function()
-            return DBGAPI:ToggleInfMana()
-        end,
-    },
+local YEYU_SKILLS = {
+    { key = "multithrust", label = "连击" },
+    { key = "crazy", label = "血咲" },
+    { key = "swordqi", label = "破空绝念斩" },
+    { key = "sharpblade", label = "利刃" },
+    { key = "aoe", label = "涟漪" },
+    { key = "draw", label = "嗜血" },
+    { key = "kill", label = "魂斩" },
+    { key = "agile", label = "踏浪" },
+    { key = "yeyu", label = "觉醒" },
 }
+
+local NILXIN_SKILLS = {
+    { key = "fire", label = "火" },
+    { key = "water", label = "水" },
+    { key = "ice", label = "冰" },
+    { key = "lightning", label = "电" },
+    { key = "wind", label = "风" },
+    { key = "space", label = "空" },
+    { key = "moon", label = "月" },
+    { key = "shadow", label = "暗" },
+    { key = "nilxin", label = "觉醒" },
+}
+
+local DEFINITIONS = {}
+
+local function AddDefinition(definition)
+    DEFINITIONS[#DEFINITIONS + 1] = definition
+end
+
+local function AddSkillSection(label, group, skills)
+    AddDefinition({
+        type = "section",
+        label = label,
+    })
+
+    for _, skill in ipairs(skills) do
+        local key = skill.key
+        local skill_label = skill.label
+        AddDefinition({
+            name = group .. "_" .. key,
+            type = "toggle_action",
+            label = skill_label,
+            group = group,
+            key = key,
+            action = function(definition, enabled)
+                return DBGAPI:SetSkillUnlocked(definition.group, definition.key, enabled)
+            end,
+        })
+    end
+end
+
+AddDefinition({
+    type = "section",
+    label = "魔力相关",
+})
+AddDefinition({
+    name = "delta_mana",
+    type = "number_action",
+    label = "恢复魔力",
+    default = 100,
+    min = -1000,
+    max = 1000,
+    step = 100,
+    button_label = "执行",
+    action = function(_, value)
+        return DBGAPI:DeltaMana(value)
+    end,
+})
+AddDefinition({
+    name = "inf_mana",
+    type = "toggle_action",
+    label = "无限魔力",
+    action = function()
+        return DBGAPI:ToggleInfMana()
+    end,
+})
+AddSkillSection("夜雨技能", "yeyuup", YEYU_SKILLS)
+AddSkillSection("空心技能", "nilxinup", NILXIN_SKILLS)
 
 local LibKxyyDebugPanel = Class(Widget, function(self, owner)
     Widget._ctor(self, "LibKxyyDebugPanel")
@@ -50,6 +102,8 @@ local LibKxyyDebugPanel = Class(Widget, function(self, owner)
     self.values = {}
     self.toggles = {
         inf_mana = false,
+        yeyuup = {},
+        nilxinup = {},
     }
 
     self:SetScaleMode(SCALEMODE_PROPORTIONAL)
@@ -103,13 +157,28 @@ local LibKxyyDebugPanel = Class(Widget, function(self, owner)
     self.options_scroll_list:SetPosition(-2, -4, 0)
 
     self._debug_listener = DBGAPI:AddListener(function(status)
-        self:ApplyStatus(status)
+        if self.inst ~= nil
+            and self.inst:IsValid()
+            and self.owner ~= nil
+            and self.owner:IsValid()
+            and ThePlayer == self.owner then
+            self:ApplyStatus(status)
+        else
+            self:RemoveDebugListener()
+        end
     end)
 
     self.default_focus = self.options_scroll_list
 
     self:Hide()
 end)
+
+function LibKxyyDebugPanel:RemoveDebugListener()
+    if self._debug_listener ~= nil then
+        DBGAPI:RemoveListener(self._debug_listener)
+        self._debug_listener = nil
+    end
+end
 
 function LibKxyyDebugPanel:GetNumber(definition)
     if definition == nil then
@@ -136,7 +205,27 @@ function LibKxyyDebugPanel:GetToggle(definition)
         return false
     end
 
+    if definition.group ~= nil and definition.key ~= nil then
+        local group = self.toggles[definition.group]
+        return type(group) == "table" and group[definition.key] == true
+    end
+
     return self.toggles[definition.name] == true
+end
+
+function LibKxyyDebugPanel:SetToggle(definition, enabled)
+    if definition == nil then
+        return
+    end
+
+    if definition.group ~= nil and definition.key ~= nil then
+        local group = self.toggles[definition.group]
+        if type(group) == "table" then
+            group[definition.key] = enabled == true
+        end
+    elseif definition.name ~= nil then
+        self.toggles[definition.name] = enabled == true
+    end
 end
 
 function LibKxyyDebugPanel:ApplyStatus(status)
@@ -146,6 +235,24 @@ function LibKxyyDebugPanel:ApplyStatus(status)
 
     if status.inf_mana ~= nil then
         self.toggles.inf_mana = status.inf_mana == true
+    end
+
+    if type(status.yeyuup) == "table" then
+        for k in pairs(self.toggles.yeyuup) do
+            self.toggles.yeyuup[k] = nil
+        end
+        for k, v in pairs(status.yeyuup) do
+            self.toggles.yeyuup[k] = v == true
+        end
+    end
+
+    if type(status.nilxinup) == "table" then
+        for k in pairs(self.toggles.nilxinup) do
+            self.toggles.nilxinup[k] = nil
+        end
+        for k, v in pairs(status.nilxinup) do
+            self.toggles.nilxinup[k] = v == true
+        end
     end
 
     if self.options_scroll_list ~= nil then
@@ -158,10 +265,25 @@ function LibKxyyDebugPanel:Execute(definition)
         return false
     end
 
-    local value = self:GetNumber(definition)
-    local ok = definition.action(value)
+    local is_toggle = definition.type == "toggle_action"
+    local current = is_toggle and self:GetToggle(definition) or nil
+    local value = is_toggle and not current or self:GetNumber(definition)
+    local ok = definition.action(definition, value)
     if not ok and self.owner ~= nil and self.owner.components ~= nil and self.owner.components.talker ~= nil then
         self.owner.components.talker:Say("调试命令执行失败")
+    end
+
+    if is_toggle then
+        if ok then
+            self:SetToggle(definition, value)
+            if self.options_scroll_list ~= nil then
+                self.options_scroll_list:RefreshView()
+            end
+            DBGAPI:SyncStatus()
+            return value
+        end
+
+        return current
     end
 
     return ok
@@ -189,10 +311,12 @@ function LibKxyyDebugPanel:Toggle()
 end
 
 function LibKxyyDebugPanel:OnRemoveEntity()
-    if self._debug_listener ~= nil then
-        DBGAPI:RemoveListener(self._debug_listener)
-        self._debug_listener = nil
-    end
+    self:RemoveDebugListener()
+end
+
+function LibKxyyDebugPanel:Kill()
+    self:RemoveDebugListener()
+    Widget.Kill(self)
 end
 
 return LibKxyyDebugPanel
