@@ -294,7 +294,10 @@ end
 
 -- 设置技能点
 function DBGAPI:SetSkillPoints(amount)
-    amount = tostring(math.floor(tonumber(amount) or 0))
+    amount = math.floor(tonumber(amount) or 0)
+    ThePlayer.replica.yyxk.skillspoint = amount
+
+    amount = tostring(amount)
 
     local command = BuildLocalYyxkCommand(
         "local amount = " .. amount .. [[
@@ -328,27 +331,17 @@ end
 
 -- 技能树全开
 function DBGAPI:UnlockSkillTree()
-    local player = ThePlayer
-    if player ~= nil
-        and player.replica ~= nil
-        and player.replica.yyxk ~= nil
-        and type(player.replica.yyxk.skills) == "table"
-        and player.components ~= nil
-        and player.components.skilltreeupdater ~= nil then
-        local updater = player.components.skilltreeupdater
+    local updater = ThePlayer.components.skilltreeupdater
 
-        for i = 1, 9 do
-            for skill in pairs(player.replica.yyxk.skills) do
-                if updater:IsValidSkill(skill) then
-                    updater:ActivateSkill(skill, player.prefab)
-                end
+    for i = 1, 9 do
+        for skill in pairs(ThePlayer.replica.yyxk.skills) do
+            if updater:IsValidSkill(skill) then
+                updater:ActivateSkill(skill, ThePlayer.prefab)
             end
         end
-
-        return true
     end
 
-    return false
+    return true
 end
 
 -- 切换无限魔力
