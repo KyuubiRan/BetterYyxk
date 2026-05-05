@@ -90,7 +90,9 @@ local LibKxyyDebugItem = Class(Widget, function(self, panel, width, height)
     self.definition = nil
 
     self.bg = self:AddChild(TEMPLATES.ListItemBackground(width, height, function()
-        if self.definition ~= nil and self.definition.type == "toggle_action" then
+        if self.definition ~= nil
+            and (self.definition.type == "toggle_action"
+                or self.definition.type == "potion_buff") then
             return false
         end
 
@@ -128,7 +130,9 @@ local LibKxyyDebugItem = Class(Widget, function(self, panel, width, height)
             old_number_lose_focus(edit)
         end
 
-        if self.definition ~= nil and self.definition.type == "number_action" then
+        if self.definition ~= nil
+            and (self.definition.type == "number_action"
+                or self.definition.type == "potion_buff") then
             self:SetNumber(edit:GetString())
         end
     end
@@ -143,7 +147,8 @@ local LibKxyyDebugItem = Class(Widget, function(self, panel, width, height)
     local old_number_control = self.number_spinner.OnControl
     self.number_spinner.OnControl = function(spinner, control, down)
         if self.definition ~= nil
-            and self.definition.type == "number_action"
+            and (self.definition.type == "number_action"
+                or self.definition.type == "potion_buff")
             and down
             and TheInput ~= nil then
             if control == TheInput:ResolveVirtualControls(spinner.control_prev) then
@@ -193,6 +198,9 @@ function LibKxyyDebugItem:Layout()
         label_right = button_x - BUTTON_WIDTH * 0.5 - CONTROL_GAP
     elseif self.definition ~= nil and self.definition.type == "toggle_action" then
         label_right = row_right - 34 - CONTROL_GAP
+    elseif self.definition ~= nil and self.definition.type == "potion_buff" then
+        spinner_x = row_right - 34 - CONTROL_GAP - NUMBER_SPINNER_WIDTH * 0.5
+        label_right = spinner_x - NUMBER_SPINNER_WIDTH * 0.5 - CONTROL_GAP
     end
     local label_width = math.max(80, label_right - row_left)
 
@@ -212,7 +220,8 @@ function LibKxyyDebugItem:NormalizeNumber(value)
 end
 
 function LibKxyyDebugItem:RefreshNumberDisplay()
-    if self.definition == nil or self.definition.type ~= "number_action" then
+    if self.definition == nil
+        or (self.definition.type ~= "number_action" and self.definition.type ~= "potion_buff") then
         return
     end
 
@@ -282,6 +291,13 @@ function LibKxyyDebugItem:SetData(definition)
         self.execute_button:Hide()
         self.checkbox:Show()
         self:RefreshToggleDisplay()
+    elseif definition.type == "potion_buff" then
+        self.number_spinner:Show()
+        self.execute_button:Hide()
+        self.checkbox:Show()
+        self.number_spinner:SetOptions(MakeNumberOptions(definition))
+        self:RefreshNumberDisplay()
+        self:RefreshToggleDisplay()
     else
         self.number_spinner:Hide()
         self.execute_button:Hide()
@@ -290,7 +306,8 @@ function LibKxyyDebugItem:SetData(definition)
 end
 
 function LibKxyyDebugItem:RefreshToggleDisplay()
-    if self.definition == nil or self.definition.type ~= "toggle_action" then
+    if self.definition == nil
+        or (self.definition.type ~= "toggle_action" and self.definition.type ~= "potion_buff") then
         return
     end
 
@@ -309,7 +326,8 @@ function LibKxyyDebugItem:RefreshToggleDisplay()
 end
 
 function LibKxyyDebugItem:SetNumber(value)
-    if self.definition == nil or self.definition.type ~= "number_action" then
+    if self.definition == nil
+        or (self.definition.type ~= "number_action" and self.definition.type ~= "potion_buff") then
         return
     end
 
@@ -318,7 +336,8 @@ function LibKxyyDebugItem:SetNumber(value)
 end
 
 function LibKxyyDebugItem:StepNumber(direction)
-    if self.definition == nil or self.definition.type ~= "number_action" then
+    if self.definition == nil
+        or (self.definition.type ~= "number_action" and self.definition.type ~= "potion_buff") then
         return
     end
 
@@ -336,7 +355,8 @@ function LibKxyyDebugItem:Execute()
     if self.definition == nil
         or (self.definition.type ~= "number_action"
             and self.definition.type ~= "button_action"
-            and self.definition.type ~= "toggle_action") then
+            and self.definition.type ~= "toggle_action"
+            and self.definition.type ~= "potion_buff") then
         return false
     end
 

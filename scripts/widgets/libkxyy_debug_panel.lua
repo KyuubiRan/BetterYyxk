@@ -51,6 +51,22 @@ local GEM_OPTIONS = {
     { key = "opalpreciousgem", label = "彩虹宝石" },
 }
 
+local POTION_BUFF_OPTIONS = {
+    { key = "scale", label = "法相天地", default = 1 },
+    { key = "qbwh", label = "千变万化", default = 2 },
+    { key = "stian", label = "飞天", default = 1 },
+    { key = "shenshu", label = "神速", default = 1 },
+    { key = "yyxkmp", label = "魔力恢复", default = 1 },
+    { key = "mybd", label = "免疫冰冻", default = 1 },
+    { key = "mysm", label = "免疫睡眠", default = 1 },
+    { key = "smhf", label = "生命恢复", default = 1 },
+    { key = "whbe", label = "我还不饿", default = 1 },
+    { key = "cydjs", label = "时光凝聚", default = 1 },
+    { key = "cantxinao", label = "精神抵抗", default = 1 },
+    { key = "NILXIN_FOXBALL_REDBLUEGEM", label = "免热魔法", default = 30 },
+    { key = "NILXIN_FOXBALL_REDREDGEM", label = "免冷魔法", default = 30 },
+}
+
 local DEFINITIONS = {}
 
 local function AddDefinition(definition)
@@ -97,6 +113,37 @@ local function AddGemSection()
             action = function(definition, value)
                 return DBGAPI:SetGemValue(definition.gem_key, value)
             end,
+        })
+    end
+end
+
+local function AddPotionSection()
+    AddDefinition({
+        type = "section",
+        label = "药剂相关",
+    })
+    AddDefinition({
+        name = "create_potion",
+        type = "number_action",
+        label = "生成药剂",
+        default = 9,
+        min = 1,
+        max = 9,
+        step = 1,
+        button_label = "执行",
+        action = function(definition, value)
+            return DBGAPI:CreatePotion(value, definition.panel:GetPotionBuffs())
+        end,
+    })
+
+    for _, buff in ipairs(POTION_BUFF_OPTIONS) do
+        AddDefinition({
+            name = "potion_buff_" .. buff.key,
+            type = "potion_buff",
+            label = buff.label,
+            default = buff.default,
+            step = 1,
+            potion_buff_key = buff.key,
         })
     end
 end
@@ -214,6 +261,7 @@ AddDefinition({
     end,
 })
 AddGemSection()
+AddPotionSection()
 AddSkillSection("夜雨技能", "yeyuup", YEYU_SKILLS)
 AddSkillSection("空心技能", "nilxinup", NILXIN_SKILLS)
 
@@ -228,6 +276,14 @@ local LibKxyyDebugPanel = Class(Widget, function(self, owner)
         yeyuup = {},
         nilxinup = {},
     }
+
+    for _, buff in ipairs(POTION_BUFF_OPTIONS) do
+        self.toggles["potion_buff_" .. buff.key] = false
+    end
+
+    for _, definition in ipairs(DEFINITIONS) do
+        definition.panel = self
+    end
 
     self:SetScaleMode(SCALEMODE_PROPORTIONAL)
     self:SetHAnchor(ANCHOR_MIDDLE)
@@ -323,6 +379,24 @@ function LibKxyyDebugPanel:SetNumber(definition, value)
     self.values[definition.name] = value
 end
 
+function LibKxyyDebugPanel:GetPotionBuffs()
+    local buffs = {}
+    for _, buff in ipairs(POTION_BUFF_OPTIONS) do
+        local definition = {
+            name = "potion_buff_" .. buff.key,
+            default = buff.default,
+        }
+        if self:GetToggle(definition) then
+            buffs[#buffs + 1] = {
+                key = buff.key,
+                value = self:GetNumber(definition),
+            }
+        end
+    end
+
+    return buffs
+end
+
 function LibKxyyDebugPanel:GetToggle(definition)
     if definition == nil or definition.name == nil then
         return false
@@ -402,10 +476,20 @@ end
 
 function LibKxyyDebugPanel:Execute(definition)
     if definition == nil or definition.action == nil then
+        if definition ~= nil and definition.type == "potion_buff" then
+            local value = not self:GetToggle(definition)
+            self:SetToggle(definition, value)
+            if self.options_scroll_list ~= nil then
+                self.options_scroll_list:RefreshView()
+            end
+            return value
+        end
+
         return false
     end
 
     local is_toggle = definition.type == "toggle_action"
+        or definition.type == "potion_buff"
     local current = is_toggle and self:GetToggle(definition) or nil
     local value = is_toggle and not current or (definition.type == "number_action" and self:GetNumber(definition) or nil)
     local ok = definition.action(definition, value)

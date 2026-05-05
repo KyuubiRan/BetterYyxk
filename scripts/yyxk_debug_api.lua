@@ -46,6 +46,21 @@ local GEM_KEYS = {
     "greengem",
     "opalpreciousgem",
 }
+local POTION_BUFF_KEYS = {
+    "scale",
+    "qbwh",
+    "stian",
+    "shenshu",
+    "yyxkmp",
+    "mybd",
+    "mysm",
+    "smhf",
+    "whbe",
+    "cydjs",
+    "cantxinao",
+    "NILXIN_FOXBALL_REDBLUEGEM",
+    "NILXIN_FOXBALL_REDREDGEM",
+}
 
 local function GetPlayerCommandString()
     local userid = ThePlayer ~= nil and ThePlayer.userid or nil
@@ -216,6 +231,16 @@ local function BuildLocalYyxkCommandWithValues(values, body)
     end
 
     return BuildLocalYyxkCommand(table.concat(lines, "\n") .. "\n" .. body)
+end
+
+local function ContainsValue(values, value)
+    for _, item in ipairs(values) do
+        if item == value then
+            return true
+        end
+    end
+
+    return false
 end
 
 local function BuildLocalDebugApiCommand(body, sync_status)
@@ -482,6 +507,50 @@ if yyxk.gem == nil then
 end
 yyxk.gem[key] = value
     ]] .. STATUS_SYNC_BODY)
+
+    return self:RemoteCall(command)
+end
+
+-- 生成药剂
+function DBGAPI:CreatePotion(level, buffs)
+    level = math.max(1, math.min(9, math.floor(tonumber(level) or 1)))
+    buffs = type(buffs) == "table" and buffs or {}
+
+    local values = {
+        { "level", level },
+    }
+    local lines = {
+        "local data = { lv = level }",
+    }
+
+    local used = {}
+    for _, buff in ipairs(buffs) do
+        local key = type(buff) == "table" and buff.key or nil
+        if key ~= nil and not used[key] and ContainsValue(POTION_BUFF_KEYS, key) then
+            used[key] = true
+            local value_name = "buff_value_" .. tostring(#values)
+            values[#values + 1] = { value_name, tonumber(buff.value) or 0 }
+            lines[#lines + 1] = "data[" .. string.format("%q", key) .. "] = " .. value_name
+        end
+    end
+
+    local command = BuildLocalYyxkCommandWithValues(values, [[
+local item = SpawnPrefab("yyxk_yaoji")
+if item ~= nil then
+    ]] .. table.concat(lines, "\n    ") .. [[
+    if item.a ~= nil then
+        item:a(data)
+    end
+    if item.components ~= nil and item.components.finiteuses ~= nil then
+        item.components.finiteuses:SetPercent(1)
+    end
+    if player.components.inventory ~= nil then
+        player.components.inventory:GiveItem(item, nil, player:GetPosition())
+    else
+        item.Transform:SetPosition(player.Transform:GetWorldPosition())
+    end
+end
+    ]])
 
     return self:RemoteCall(command)
 end
