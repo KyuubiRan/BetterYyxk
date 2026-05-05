@@ -585,23 +585,34 @@ function LibKxyyDebugPanel:Execute(definition)
 end
 
 function LibKxyyDebugPanel:ShowPanel()
+    if not DBGAPI:IsAdmin() then
+        if self.owner ~= nil
+            and self.owner.components ~= nil
+            and self.owner.components.talker ~= nil then
+            self.owner.components.talker:Say("需要管理员权限")
+        end
+        return false
+    end
+
     KeyListener:SetSettingsOpen(true)
     self:ApplyStatus(DBGAPI:GetStatus())
     DBGAPI:SyncStatus()
     self:MoveToFront()
     self:Show()
+    return true
 end
 
 function LibKxyyDebugPanel:HidePanel()
     KeyListener:SetSettingsOpen(false)
     self:Hide()
+    return true
 end
 
 function LibKxyyDebugPanel:Toggle()
     if self.shown then
-        self:HidePanel()
+        return self:HidePanel()
     else
-        self:ShowPanel()
+        return self:ShowPanel()
     end
 end
 

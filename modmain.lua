@@ -298,6 +298,13 @@ local function RegisterKeyActions()
             if player_active
                 and active_controls ~= nil
                 and active_controls.libkxyy_debug_panel ~= nil then
+                if not DBGAPI:IsAdmin() then
+                    local api = GetYyxkApi()
+                    if api ~= nil then
+                        api:Say("需要管理员权限")
+                    end
+                    return
+                end
                 if active_controls.libkxyy_config_panel ~= nil
                     and active_controls.libkxyy_config_panel.shown
                     and not active_controls.libkxyy_debug_panel.shown then

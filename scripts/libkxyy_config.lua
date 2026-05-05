@@ -56,7 +56,7 @@ AddDefinition({
     name = "debug_panel_hotkey",
     type = "key",
     label = "调试面板",
-    description = "按下开关调试面板",
+    description = "按下开关调试面板，需要管理员权限",
     default = -1,
 })
 
