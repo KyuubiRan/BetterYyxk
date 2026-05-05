@@ -457,4 +457,15 @@ function API:UseItemInHand()
     inv:UseItemFromInvTile(inv:GetEquippedItem(EQUIPSLOTS.HANDS))
 end
 
+-- 重置天赋树
+function API:ResetSkillTree()
+    if STRINGS.YYXK == nil or STRINGS.YYXK.SKILLTREE == nil then
+        return
+    end
+
+    for k, _ in pairs(STRINGS.YYXK.SKILLTREE) do
+        self:SendToServer("settings", "skillsreset", k)
+    end
+end
+
 return API
