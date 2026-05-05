@@ -4,6 +4,7 @@ local DBGAPI = {
         yeyunilxin = false,
         xin = 100,
         love = 0,
+        gem = {},
         yeyuup = {},
         nilxinup = {},
     },
@@ -33,6 +34,17 @@ local NILXIN_SKILL_KEYS = {
     "moon",
     "shadow",
     "nilxin",
+}
+local GEM_KEYS = {
+    "nilxin_greygem",
+    "nilxin_cyangem",
+    "purplegem",
+    "bluegem",
+    "redgem",
+    "orangegem",
+    "yellowgem",
+    "greengem",
+    "opalpreciousgem",
 }
 
 local function GetPlayerCommandString()
@@ -118,6 +130,20 @@ local function ApplySkillStatus(target, source)
     end
 end
 
+local function ApplyNumberStatus(target, source)
+    if type(source) ~= "table" then
+        return
+    end
+
+    for k in pairs(target) do
+        target[k] = nil
+    end
+
+    for k, v in pairs(source) do
+        target[k] = tonumber(v) or 0
+    end
+end
+
 local function BuildStatusSyncBody()
     local args = {
         string.format("%q", DEBUG_STATUS_CLIENT_FN),
@@ -134,6 +160,10 @@ local function BuildStatusSyncBody()
 
     for _, key in ipairs(NILXIN_SKILL_KEYS) do
         args[#args + 1] = "(yyxk.nilxinup ~= nil and yyxk.nilxinup." .. key .. " == true)"
+    end
+
+    for _, key in ipairs(GEM_KEYS) do
+        args[#args + 1] = "(yyxk.gem ~= nil and tonumber(yyxk.gem." .. key .. ") or 0)"
     end
 
     return [[
@@ -220,6 +250,7 @@ function DBGAPI:Init(inst)
                     love = tonumber(values[3]) or 0,
                     yeyuup = {},
                     nilxinup = {},
+                    gem = {},
                 }
                 local index = 4
                 for _, key in ipairs(YEYU_SKILL_KEYS) do
@@ -228,6 +259,10 @@ function DBGAPI:Init(inst)
                 end
                 for _, key in ipairs(NILXIN_SKILL_KEYS) do
                     status.nilxinup[key] = values[index] == true
+                    index = index + 1
+                end
+                for _, key in ipairs(GEM_KEYS) do
+                    status.gem[key] = tonumber(values[index]) or 0
                     index = index + 1
                 end
                 self:ApplyStatus(status)
@@ -277,6 +312,7 @@ function DBGAPI:ApplyStatus(status)
 
     ApplySkillStatus(self.status.yeyuup, status.yeyuup)
     ApplySkillStatus(self.status.nilxinup, status.nilxinup)
+    ApplyNumberStatus(self.status.gem, status.gem)
 
     NotifyListeners(self.status)
 end
@@ -413,6 +449,38 @@ yyxk.love = value
 if yyxk.jiemei ~= nil and yyxk.jiemei.yyxk_bz ~= nil and yyxk.jiemei.yyxk_bz.components ~= nil and yyxk.jiemei.yyxk_bz.components.named ~= nil then
     yyxk.jiemei.yyxk_bz.components.named:SetName("狐狸宝珠(♡" .. yyxk.love .. ")")
 end
+    ]] .. STATUS_SYNC_BODY)
+
+    return self:RemoteCall(command)
+end
+
+-- 设置元素等级
+function DBGAPI:SetGemValue(key, value)
+    if type(key) ~= "string" or key == "" then
+        return false
+    end
+
+    local known = false
+    for _, gem_key in ipairs(GEM_KEYS) do
+        if gem_key == key then
+            known = true
+            break
+        end
+    end
+    if not known then
+        return false
+    end
+
+    value = math.floor(tonumber(value) or 0)
+
+    local command = BuildLocalYyxkCommandWithValues({
+        { "key", string.format("%q", key) },
+        { "value", value },
+    }, [[
+if yyxk.gem == nil then
+    yyxk.gem = {}
+end
+yyxk.gem[key] = value
     ]] .. STATUS_SYNC_BODY)
 
     return self:RemoteCall(command)

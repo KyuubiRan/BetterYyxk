@@ -39,6 +39,18 @@ local NILXIN_SKILLS = {
     { key = "nilxin", label = "觉醒" },
 }
 
+local GEM_OPTIONS = {
+    { key = "nilxin_greygem", label = "灰宝石" },
+    { key = "nilxin_cyangem", label = "青宝石" },
+    { key = "purplegem", label = "紫宝石" },
+    { key = "bluegem", label = "蓝宝石" },
+    { key = "redgem", label = "红宝石" },
+    { key = "orangegem", label = "橙宝石" },
+    { key = "yellowgem", label = "黄宝石" },
+    { key = "greengem", label = "绿宝石" },
+    { key = "opalpreciousgem", label = "彩虹宝石" },
+}
+
 local DEFINITIONS = {}
 
 local function AddDefinition(definition)
@@ -62,6 +74,28 @@ local function AddSkillSection(label, group, skills)
             key = key,
             action = function(definition, enabled)
                 return DBGAPI:SetSkillUnlocked(definition.group, definition.key, enabled)
+            end,
+        })
+    end
+end
+
+local function AddGemSection()
+    AddDefinition({
+        type = "section",
+        label = "元素相关",
+    })
+
+    for _, gem in ipairs(GEM_OPTIONS) do
+        AddDefinition({
+            name = "gem_" .. gem.key,
+            type = "number_action",
+            label = gem.label,
+            default = 1,
+            step = 100,
+            button_label = "执行",
+            gem_key = gem.key,
+            action = function(definition, value)
+                return DBGAPI:SetGemValue(definition.gem_key, value)
             end,
         })
     end
@@ -179,6 +213,7 @@ AddDefinition({
         return DBGAPI:SetJiemeiLove(value)
     end,
 })
+AddGemSection()
 AddSkillSection("夜雨技能", "yeyuup", YEYU_SKILLS)
 AddSkillSection("空心技能", "nilxinup", NILXIN_SKILLS)
 
@@ -332,6 +367,14 @@ function LibKxyyDebugPanel:ApplyStatus(status)
     end
     if status.love ~= nil then
         self.values.jiemei_love = tonumber(status.love) or 0
+    end
+    if type(status.gem) == "table" then
+        for _, gem in ipairs(GEM_OPTIONS) do
+            local value = status.gem[gem.key]
+            if value ~= nil then
+                self.values["gem_" .. gem.key] = tonumber(value) or 0
+            end
+        end
     end
 
     if type(status.yeyuup) == "table" then
