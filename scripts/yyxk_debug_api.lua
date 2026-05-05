@@ -54,6 +54,8 @@ local POTION_BUFF_KEYS = {
     "qbwh",
     "stian",
     "shenshu",
+    "NILXIN_FOXBALL_REDOPALPRECIOUSGEM",
+    "NILXIN_FOXBALL_REDORANGEGEM",
     "yyxkmp",
     "mybd",
     "mysm",
@@ -61,6 +63,7 @@ local POTION_BUFF_KEYS = {
     "whbe",
     "cydjs",
     "cantxinao",
+    "picksomething2",
     "NILXIN_FOXBALL_REDBLUEGEM",
     "NILXIN_FOXBALL_REDREDGEM",
 }

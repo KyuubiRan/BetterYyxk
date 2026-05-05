@@ -56,6 +56,8 @@ local POTION_BUFF_OPTIONS = {
     { key = "qbwh", label = "千变万化", default = 2 },
     { key = "stian", label = "飞天", default = 1 },
     { key = "shenshu", label = "神速", default = 1 },
+    { key = "NILXIN_FOXBALL_REDOPALPRECIOUSGEM", label = "月光凄美", default = 1 },
+    { key = "NILXIN_FOXBALL_REDORANGEGEM", label = "空间感知", default = 1 },
     { key = "yyxkmp", label = "魔力恢复", default = 1 },
     { key = "mybd", label = "免疫冰冻", default = 1 },
     { key = "mysm", label = "免疫睡眠", default = 1 },
@@ -63,6 +65,7 @@ local POTION_BUFF_OPTIONS = {
     { key = "whbe", label = "我还不饿", default = 1 },
     { key = "cydjs", label = "时光凝聚", default = 1 },
     { key = "cantxinao", label = "精神抵抗", default = 1 },
+    { key = "picksomething2", label = "双倍采集", default = 1 },
     { key = "NILXIN_FOXBALL_REDBLUEGEM", label = "免热魔法", default = 30 },
     { key = "NILXIN_FOXBALL_REDREDGEM", label = "免冷魔法", default = 30 },
 }
