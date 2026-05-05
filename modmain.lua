@@ -19,9 +19,11 @@ local LibKxyyConfig = require("libkxyy_config")
 local LibKxyyKeyListener = require("libkxyy_key_listener")
 local LibKxyyMagicData = require("libkxyy_magic_data")
 local LibKxyyConfigPanel = require("widgets/libkxyy_config_panel")
+local LibKxyyDebugPanel = require("widgets/libkxyy_debug_panel")
 local LibKxyyIntro = require("widgets/libkxyy_intro")
 local LibKxyyMagicWheel = require("widgets/libkxyy_magic_wheel")
 local YyxkApi = require("yyxk_api")
+local DBGAPI = require("yyxk_debug_api")
 
 local MAGIC_WHEEL_SHORT_PRESS_TIME = 0.2
 local HONGYE_TRUE_DAMAGE_EQUIP_DELAY = 0.1
@@ -272,6 +274,23 @@ local function RegisterKeyActions()
         end,
     })
 
+    LibKxyyKeyListener:RegisterAction("debug_panel", {
+        key = LibKxyyConfig:Get("debug_panel_hotkey", -1),
+        on_down = function()
+            if player_active
+                and active_controls ~= nil
+                and active_controls.libkxyy_debug_panel ~= nil then
+                if active_controls.libkxyy_config_panel ~= nil
+                    and active_controls.libkxyy_config_panel.shown
+                    and not active_controls.libkxyy_debug_panel.shown then
+                    active_controls.libkxyy_config_panel:HidePanel()
+                end
+                active_controls.libkxyy_debug_panel:Toggle()
+            end
+        end,
+        allow_when_settings_open = true,
+    })
+
     LibKxyyKeyListener:RegisterAction("summon_shadow_chest", {
         key = LibKxyyConfig:Get("summon_shadow_chest_hotkey", -1),
         on_down = function()
@@ -329,6 +348,10 @@ local function RegisterConfigListener()
             LibKxyyKeyListener:SetActionKey("wanda_teleport_ui", changed.wanda_teleport_ui_hotkey)
         end
 
+        if changed.debug_panel_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("debug_panel", changed.debug_panel_hotkey)
+        end
+
         if changed.summon_shadow_chest_hotkey ~= nil then
             LibKxyyKeyListener:SetActionKey("summon_shadow_chest", changed.summon_shadow_chest_hotkey)
         end
@@ -358,6 +381,7 @@ end
 local function ApplyConfigToRuntime()
     LibKxyyKeyListener:SetActionKey("magic_wheel", LibKxyyConfig:Get("magic_wheel_hotkey"))
     LibKxyyKeyListener:SetActionKey("wanda_teleport_ui", LibKxyyConfig:Get("wanda_teleport_ui_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("debug_panel", LibKxyyConfig:Get("debug_panel_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("summon_shadow_chest", LibKxyyConfig:Get("summon_shadow_chest_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("repeat_nilxin_skill", LibKxyyConfig:Get("repeat_nilxin_skill_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("locked_repeat_nilxin_skill", LibKxyyConfig:Get("locked_repeat_nilxin_skill_hotkey", -1))
@@ -410,6 +434,10 @@ local function SetControlsUIVisible(controls, visible)
         controls.libkxyy_config_panel:HidePanel()
     end
 
+    if controls.libkxyy_debug_panel ~= nil then
+        controls.libkxyy_debug_panel:HidePanel()
+    end
+
     if controls.libkxyy_magic_wheel ~= nil then
         controls.libkxyy_magic_wheel:HideWheel(false)
     end
@@ -419,11 +447,15 @@ local function AttachControlsUI(self)
     active_controls = self
 
     if self.libkxyy_intro ~= nil then
+        if self.libkxyy_debug_panel == nil then
+            self.libkxyy_debug_panel = self.top_root:AddChild(LibKxyyDebugPanel(self.owner))
+        end
         SetControlsUIVisible(self, player_active and IsLocalYyxkPlayer(self.owner))
         return
     end
 
     self.libkxyy_config_panel = self.top_root:AddChild(LibKxyyConfigPanel(self.owner))
+    self.libkxyy_debug_panel = self.top_root:AddChild(LibKxyyDebugPanel(self.owner))
     self.libkxyy_intro = self.top_root:AddChild(LibKxyyIntro(self.owner))
     self.libkxyy_magic_wheel = self:AddChild(LibKxyyMagicWheel(GetEnabledMagicOptions()))
     active_magic_wheel = self.libkxyy_magic_wheel
@@ -480,6 +512,7 @@ local function InitializeForPlayer(inst)
     if api == nil then
         return false
     end
+    DBGAPI:Init(inst)
     RegisterHongyeTrueDamageEquipListener(inst)
 
     if not initialized then
