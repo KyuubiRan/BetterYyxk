@@ -148,6 +148,47 @@ local function AddPotionSection()
     end
 end
 
+local function AddEquipmentSection()
+    AddDefinition({
+        type = "section",
+        label = "装备相关",
+    })
+    AddDefinition({
+        name = "yyxk_amulet",
+        type = "toggle_action",
+        label = "满级伞护",
+        action = function(_, enabled)
+            return DBGAPI:SetYyxkAmulet(enabled)
+        end,
+    })
+    AddDefinition({
+        name = "wand_decompose",
+        type = "number_action",
+        label = "魔杖分解",
+        description = "需要装备魔杖",
+        default = 0,
+        min = 0,
+        step = 1000,
+        button_label = "执行",
+        action = function(_, value)
+            return DBGAPI:SetWandDecompose(value)
+        end,
+    })
+    AddDefinition({
+        name = "yeyu_foxfire",
+        type = "number_action",
+        label = "红叶狐火",
+        description = "需要装备红叶",
+        default = 0,
+        min = 0,
+        step = 1,
+        button_label = "执行",
+        action = function(_, value)
+            return DBGAPI:SetYeyuFoxfire(value)
+        end,
+    })
+end
+
 AddDefinition({
     type = "section",
     label = "人物相关",
@@ -260,6 +301,7 @@ AddDefinition({
         return DBGAPI:SetJiemeiLove(value)
     end,
 })
+AddEquipmentSection()
 AddGemSection()
 AddPotionSection()
 AddSkillSection("夜雨技能", "yeyuup", YEYU_SKILLS)
@@ -273,6 +315,7 @@ local LibKxyyDebugPanel = Class(Widget, function(self, owner)
     self.toggles = {
         inf_mana = false,
         yeyunilxin = false,
+        yyxk_amulet = false,
         yeyuup = {},
         nilxinup = {},
     }
@@ -346,6 +389,15 @@ local LibKxyyDebugPanel = Class(Widget, function(self, owner)
             self:RemoveDebugListener()
         end
     end)
+    self._equipment_sync_fn = function()
+        if self.shown then
+            DBGAPI:SyncStatus()
+        end
+    end
+    if self.owner ~= nil and self.owner.ListenForEvent ~= nil then
+        self.owner:ListenForEvent("equip", self._equipment_sync_fn)
+        self.owner:ListenForEvent("unequip", self._equipment_sync_fn)
+    end
 
     self.default_focus = self.options_scroll_list
 
@@ -356,6 +408,14 @@ function LibKxyyDebugPanel:RemoveDebugListener()
     if self._debug_listener ~= nil then
         DBGAPI:RemoveListener(self._debug_listener)
         self._debug_listener = nil
+    end
+
+    if self._equipment_sync_fn ~= nil
+        and self.owner ~= nil
+        and self.owner.RemoveEventCallback ~= nil then
+        self.owner:RemoveEventCallback("equip", self._equipment_sync_fn)
+        self.owner:RemoveEventCallback("unequip", self._equipment_sync_fn)
+        self._equipment_sync_fn = nil
     end
 end
 
@@ -436,11 +496,20 @@ function LibKxyyDebugPanel:ApplyStatus(status)
     if status.yeyunilxin ~= nil then
         self.toggles.yeyunilxin = status.yeyunilxin == true
     end
+    if status.yyxk_amulet ~= nil then
+        self.toggles.yyxk_amulet = status.yyxk_amulet == true
+    end
     if status.xin ~= nil then
         self.values.jiemei_xin = tonumber(status.xin) or 0
     end
     if status.love ~= nil then
         self.values.jiemei_love = tonumber(status.love) or 0
+    end
+    if status.wand_decompose ~= nil then
+        self.values.wand_decompose = tonumber(status.wand_decompose) or 0
+    end
+    if status.yeyu_foxfire ~= nil then
+        self.values.yeyu_foxfire = tonumber(status.yeyu_foxfire) or 0
     end
     if type(status.gem) == "table" then
         for _, gem in ipairs(GEM_OPTIONS) do

@@ -2,8 +2,11 @@ local DBGAPI = {
     status = {
         inf_mana = false,
         yeyunilxin = false,
+        yyxk_amulet = false,
         xin = 100,
         love = 0,
+        wand_decompose = 0,
+        yeyu_foxfire = 0,
         gem = {},
         yeyuup = {},
         nilxinup = {},
@@ -12,7 +15,7 @@ local DBGAPI = {
 }
 
 local DEBUG_STATUS_CLIENT_FN = "__LibKxyyDebugStatus"
-local DEBUG_STATUS_VERSION = "__v2"
+local DEBUG_STATUS_VERSION = "__v3"
 local YEYU_SKILL_KEYS = {
     "multithrust",
     "crazy",
@@ -167,6 +170,20 @@ local function BuildStatusSyncBody()
         "yyxk.yeyunilxin == true",
         "tonumber(yyxk.xin) or 0",
         "tonumber(yyxk.love) or 0",
+        "yyxk.yyxk_amulet == true",
+        [[(function()
+            local inv = player.components.inventory
+            local weapon = inv ~= nil and inv:GetEquippedItem(EQUIPSLOTS.HANDS) or nil
+            return weapon ~= nil and weapon.prefab == "nilxin_scepter" and tonumber(weapon.redSum) or 0
+        end)()]],
+        [[(function()
+            local inv = player.components.inventory
+            local weapon = inv ~= nil and inv:GetEquippedItem(EQUIPSLOTS.HANDS) or nil
+            if weapon ~= nil and weapon.prefab == "yeyu_sword" then
+                return math.max(0, math.floor(((tonumber(yyxk.yeyusworddamage) or 55) - 55) / 3))
+            end
+            return 0
+        end)()]],
     }
 
     for _, key in ipairs(YEYU_SKILL_KEYS) do
@@ -273,11 +290,14 @@ function DBGAPI:Init(inst)
                     yeyunilxin = values[1] == true,
                     xin = tonumber(values[2]) or 0,
                     love = tonumber(values[3]) or 0,
+                    yyxk_amulet = values[4] == true,
+                    wand_decompose = tonumber(values[5]) or 0,
+                    yeyu_foxfire = tonumber(values[6]) or 0,
                     yeyuup = {},
                     nilxinup = {},
                     gem = {},
                 }
-                local index = 4
+                local index = 7
                 for _, key in ipairs(YEYU_SKILL_KEYS) do
                     status.yeyuup[key] = values[index] == true
                     index = index + 1
@@ -328,11 +348,20 @@ function DBGAPI:ApplyStatus(status)
     if status.yeyunilxin ~= nil then
         self.status.yeyunilxin = status.yeyunilxin == true
     end
+    if status.yyxk_amulet ~= nil then
+        self.status.yyxk_amulet = status.yyxk_amulet == true
+    end
     if status.xin ~= nil then
         self.status.xin = tonumber(status.xin) or 0
     end
     if status.love ~= nil then
         self.status.love = tonumber(status.love) or 0
+    end
+    if status.wand_decompose ~= nil then
+        self.status.wand_decompose = tonumber(status.wand_decompose) or 0
+    end
+    if status.yeyu_foxfire ~= nil then
+        self.status.yeyu_foxfire = tonumber(status.yeyu_foxfire) or 0
     end
 
     ApplySkillStatus(self.status.yeyuup, status.yeyuup)
@@ -473,6 +502,52 @@ function DBGAPI:SetJiemeiLove(value)
 yyxk.love = value
 if yyxk.jiemei ~= nil and yyxk.jiemei.yyxk_bz ~= nil and yyxk.jiemei.yyxk_bz.components ~= nil and yyxk.jiemei.yyxk_bz.components.named ~= nil then
     yyxk.jiemei.yyxk_bz.components.named:SetName("狐狸宝珠(♡" .. yyxk.love .. ")")
+end
+    ]] .. STATUS_SYNC_BODY)
+
+    return self:RemoteCall(command)
+end
+
+-- 设置满级伞护
+function DBGAPI:SetYyxkAmulet(enabled)
+    local command = BuildLocalYyxkCommandWithValue("enabled", enabled == true and "true" or "false", [[
+yyxk.yyxk_amulet = enabled
+    ]] .. STATUS_SYNC_BODY)
+
+    return self:RemoteCall(command)
+end
+
+-- 设置魔杖分解数
+function DBGAPI:SetWandDecompose(value)
+    value = math.max(0, math.floor(tonumber(value) or 0))
+
+    local command = BuildLocalYyxkCommandWithValue("value", value, [[
+local inv = player.components.inventory
+if inv ~= nil then
+    local weapon = inv:GetEquippedItem(EQUIPSLOTS.HANDS)
+    if weapon ~= nil and weapon.prefab == "nilxin_scepter" and weapon.redSum ~= nil then
+        weapon.redSum = value
+    end
+end
+    ]] .. STATUS_SYNC_BODY)
+
+    return self:RemoteCall(command)
+end
+
+-- 设置红叶狐火数
+function DBGAPI:SetYeyuFoxfire(value)
+    value = math.max(0, math.floor(tonumber(value) or 0))
+
+    local command = BuildLocalYyxkCommandWithValue("value", value, [[
+local inv = player.components.inventory
+if inv ~= nil then
+    local weapon = inv:GetEquippedItem(EQUIPSLOTS.HANDS)
+    if weapon ~= nil and weapon.prefab == "yeyu_sword" then
+        yyxk.yeyusworddamage = 55 + 3 * math.floor(value)
+        if weapon.components ~= nil and weapon.components.weapon ~= nil then
+            weapon.components.weapon:SetDamage(yyxk.yeyusworddamage)
+        end
+    end
 end
     ]] .. STATUS_SYNC_BODY)
 
