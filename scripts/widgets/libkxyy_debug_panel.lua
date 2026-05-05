@@ -141,6 +141,44 @@ AddDefinition({
         return DBGAPI:ToggleInfMana()
     end,
 })
+AddDefinition({
+    type = "section",
+    label = "姐妹相关",
+})
+AddDefinition({
+    name = "yeyunilxin",
+    type = "toggle_action",
+    label = "解锁",
+    action = function(_, enabled)
+        return DBGAPI:SetJiemeiUnlocked(enabled)
+    end,
+})
+AddDefinition({
+    name = "jiemei_xin",
+    type = "number_action",
+    label = "心情",
+    default = 100,
+    min = -99,
+    max = 100,
+    step = 10,
+    button_label = "执行",
+    action = function(_, value)
+        return DBGAPI:SetJiemeiXin(value)
+    end,
+})
+AddDefinition({
+    name = "jiemei_love",
+    type = "number_action",
+    label = "好感",
+    default = 100,
+    min = 0,
+    max = 99999,
+    step = 100,
+    button_label = "执行",
+    action = function(_, value)
+        return DBGAPI:SetJiemeiLove(value)
+    end,
+})
 AddSkillSection("夜雨技能", "yeyuup", YEYU_SKILLS)
 AddSkillSection("空心技能", "nilxinup", NILXIN_SKILLS)
 
@@ -151,6 +189,7 @@ local LibKxyyDebugPanel = Class(Widget, function(self, owner)
     self.values = {}
     self.toggles = {
         inf_mana = false,
+        yeyunilxin = false,
         yeyuup = {},
         nilxinup = {},
     }
@@ -284,6 +323,15 @@ function LibKxyyDebugPanel:ApplyStatus(status)
 
     if status.inf_mana ~= nil then
         self.toggles.inf_mana = status.inf_mana == true
+    end
+    if status.yeyunilxin ~= nil then
+        self.toggles.yeyunilxin = status.yeyunilxin == true
+    end
+    if status.xin ~= nil then
+        self.values.jiemei_xin = tonumber(status.xin) or 0
+    end
+    if status.love ~= nil then
+        self.values.jiemei_love = tonumber(status.love) or 0
     end
 
     if type(status.yeyuup) == "table" then

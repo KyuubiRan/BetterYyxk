@@ -1,6 +1,9 @@
 local DBGAPI = {
     status = {
         inf_mana = false,
+        yeyunilxin = false,
+        xin = 100,
+        love = 0,
         yeyuup = {},
         nilxinup = {},
     },
@@ -120,6 +123,9 @@ local function BuildStatusSyncBody()
         string.format("%q", DEBUG_STATUS_CLIENT_FN),
         string.format("%q", DEBUG_STATUS_VERSION),
         "status_debug_api.inf_mana == true",
+        "yyxk.yeyunilxin == true",
+        "tonumber(yyxk.xin) or 0",
+        "tonumber(yyxk.love) or 0",
     }
 
     for _, key in ipairs(YEYU_SKILL_KEYS) do
@@ -169,6 +175,19 @@ local function BuildLocalYyxkCommand(body)
     return BuildYyxkCommand(GetPlayerCommandString(), body)
 end
 
+local function BuildLocalYyxkCommandWithValue(name, value, body)
+    return BuildLocalYyxkCommand("local " .. name .. " = " .. tostring(value) .. "\n" .. body)
+end
+
+local function BuildLocalYyxkCommandWithValues(values, body)
+    local lines = {}
+    for _, value_def in ipairs(values) do
+        lines[#lines + 1] = "local " .. value_def[1] .. " = " .. tostring(value_def[2])
+    end
+
+    return BuildLocalYyxkCommand(table.concat(lines, "\n") .. "\n" .. body)
+end
+
 local function BuildLocalDebugApiCommand(body, sync_status)
     return BuildLocalYyxkCommand(DEBUG_API_INIT_BODY .. body .. (sync_status and STATUS_SYNC_BODY or ""))
 end
@@ -196,10 +215,13 @@ function DBGAPI:Init(inst)
                 local values = { ... }
                 local status = {
                     inf_mana = inf_mana == true,
+                    yeyunilxin = values[1] == true,
+                    xin = tonumber(values[2]) or 0,
+                    love = tonumber(values[3]) or 0,
                     yeyuup = {},
                     nilxinup = {},
                 }
-                local index = 1
+                local index = 4
                 for _, key in ipairs(YEYU_SKILL_KEYS) do
                     status.yeyuup[key] = values[index] == true
                     index = index + 1
@@ -241,6 +263,16 @@ function DBGAPI:ApplyStatus(status)
 
     if status.inf_mana ~= nil then
         self.status.inf_mana = status.inf_mana == true
+    end
+
+    if status.yeyunilxin ~= nil then
+        self.status.yeyunilxin = status.yeyunilxin == true
+    end
+    if status.xin ~= nil then
+        self.status.xin = tonumber(status.xin) or 0
+    end
+    if status.love ~= nil then
+        self.status.love = tonumber(status.love) or 0
     end
 
     ApplySkillStatus(self.status.yeyuup, status.yeyuup)
@@ -287,8 +319,8 @@ end
 function DBGAPI:DeltaMana(delta)
     delta = tonumber(delta) or 0
 
-    local command = BuildLocalYyxkCommand([[
-            yyxk:DoMP(]] .. tostring(delta) .. [[, false)
+    local command = BuildLocalYyxkCommandWithValue("delta", delta, [[
+yyxk:DoMP(delta, false)
     ]])
 
     return self:RemoteCall(command)
@@ -299,11 +331,7 @@ function DBGAPI:SetSkillPoints(amount)
     amount = math.floor(tonumber(amount) or 0)
     ThePlayer.replica.yyxk.skillspoint = amount
 
-    amount = tostring(amount)
-
-    local command = BuildLocalYyxkCommand(
-        "local amount = " .. amount .. [[
-
+    local command = BuildLocalYyxkCommandWithValue("amount", amount, [[
 if player.replica ~= nil and player.replica.yyxk ~= nil then
     player.replica.yyxk.skillspoint = amount
 end
@@ -314,11 +342,9 @@ end
 
 -- 设置狐心等级
 function DBGAPI:SetHuxinLevel(level)
-    level = tostring(math.clamp(math.floor(tonumber(level) or 0), 0, 100))
+    level = math.clamp(math.floor(tonumber(level) or 0), 0, 100)
 
-    local command = BuildLocalYyxkCommand(
-        "local level = " .. level .. [[
-
+    local command = BuildLocalYyxkCommandWithValue("level", level, [[
 if level == 0 then
     player.components.yyxkf:delBuff("cylv")
 else
@@ -355,6 +381,43 @@ yyxk.magicWandSkill = {}
     return self:RemoteCall(command)
 end
 
+-- 设置姐妹解锁状态
+function DBGAPI:SetJiemeiUnlocked(enabled)
+    local command = BuildLocalYyxkCommandWithValue("enabled", enabled == true and "true" or "false", [[
+yyxk.yeyunilxin = enabled
+    ]] .. STATUS_SYNC_BODY)
+
+    return self:RemoteCall(command)
+end
+
+-- 设置姐妹心情
+function DBGAPI:SetJiemeiXin(value)
+    value = math.max(-99, math.min(100, math.floor(tonumber(value) or 0)))
+
+    local command = BuildLocalYyxkCommandWithValue("value", value, [[
+yyxk.xin = value
+if yyxk.setXinFN ~= nil then
+    yyxk:setXinFN(0)
+end
+    ]] .. STATUS_SYNC_BODY)
+
+    return self:RemoteCall(command)
+end
+
+-- 设置姐妹好感
+function DBGAPI:SetJiemeiLove(value)
+    value = math.floor(tonumber(value) or 0)
+
+    local command = BuildLocalYyxkCommandWithValue("value", value, [[
+yyxk.love = value
+if yyxk.jiemei ~= nil and yyxk.jiemei.yyxk_bz ~= nil and yyxk.jiemei.yyxk_bz.components ~= nil and yyxk.jiemei.yyxk_bz.components.named ~= nil then
+    yyxk.jiemei.yyxk_bz.components.named:SetName("狐狸宝珠(♡" .. yyxk.love .. ")")
+end
+    ]] .. STATUS_SYNC_BODY)
+
+    return self:RemoteCall(command)
+end
+
 -- 切换无限魔力
 function DBGAPI:ToggleInfMana()
     local command = BuildLocalDebugApiCommand([[
@@ -385,12 +448,14 @@ function DBGAPI:SetSkillUnlocked(group, key, enabled)
     end
 
     local target_enabled = enabled == true
-    local command = BuildLocalYyxkCommand([[
-local group = ]] .. string.format("%q", group) .. [[
-local key = ]] .. string.format("%q", key) .. [[
+    local command = BuildLocalYyxkCommandWithValues({
+        { "group", string.format("%q", group) },
+        { "key", string.format("%q", key) },
+        { "target_enabled", target_enabled and "true" or "false" },
+    }, [[
 local skills = yyxk[group]
 if type(skills) == "table" and skills[key] ~= nil then
-    skills[key] = ]] .. (target_enabled and "true" or "false") .. [[
+    skills[key] = target_enabled
     if yyxk.__DebugApi ~= nil and type(yyxk.__DebugApi.status) == "table" then
         if yyxk.__DebugApi.status[group] == nil then
             yyxk.__DebugApi.status[group] = {}
