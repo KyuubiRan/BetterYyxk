@@ -69,6 +69,46 @@ end
 
 AddDefinition({
     type = "section",
+    label = "人物相关",
+})
+AddDefinition({
+    name = "set_skill_points",
+    type = "number_action",
+    label = "设置技能点",
+    default = 972,
+    min = 0,
+    max = 999,
+    step = 1,
+    button_label = "执行",
+    action = function(_, value)
+        return DBGAPI:SetSkillPoints(value)
+    end,
+})
+AddDefinition({
+    name = "set_huxin_level",
+    type = "number_action",
+    label = "狐心等级",
+    default = 100,
+    min = 0,
+    max = 100,
+    step = 1,
+    button_label = "执行",
+    action = function(_, value)
+        return DBGAPI:SetHuxinLevel(value)
+    end,
+})
+AddDefinition({
+    name = "unlock_skill_tree",
+    type = "button_action",
+    label = "技能树全开",
+    button_label = "执行",
+    description = "执行前请确保有足够的技能点数",
+    action = function()
+        return DBGAPI:UnlockSkillTree()
+    end,
+})
+AddDefinition({
+    type = "section",
     label = "魔力相关",
 })
 AddDefinition({
@@ -267,7 +307,7 @@ function LibKxyyDebugPanel:Execute(definition)
 
     local is_toggle = definition.type == "toggle_action"
     local current = is_toggle and self:GetToggle(definition) or nil
-    local value = is_toggle and not current or self:GetNumber(definition)
+    local value = is_toggle and not current or (definition.type == "number_action" and self:GetNumber(definition) or nil)
     local ok = definition.action(definition, value)
     if not ok and self.owner ~= nil and self.owner.components ~= nil and self.owner.components.talker ~= nil then
         self.owner.components.talker:Say("调试命令执行失败")

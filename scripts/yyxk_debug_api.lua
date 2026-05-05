@@ -155,14 +155,12 @@ local debug_api = yyxk.__DebugApi
 
 local function BuildYyxkCommand(player_expr, body)
     return [[
-        local player = ]] .. player_expr .. [[
-        if player ~= nil
-            and player.components ~= nil
-            and player.components.yyxk ~= nil then
-            local yyxk = player.components.yyxk
+local player = ]] .. player_expr .. [[
+if player ~= nil and player.components ~= nil and player.components.yyxk ~= nil then
+    local yyxk = player.components.yyxk
     ]] .. body .. [[
-        end
-    ]]
+end
+]]
 end
 
 local function BuildLocalYyxkCommand(body)
@@ -294,20 +292,78 @@ function DBGAPI:DeltaMana(delta)
     return self:RemoteCall(command)
 end
 
+-- 设置技能点
+function DBGAPI:SetSkillPoints(amount)
+    amount = math.floor(tonumber(amount) or 0)
+
+    local command = BuildLocalYyxkCommand([[
+local amount = ]] .. tostring(amount) .. [[
+if player.replica ~= nil and player.replica.yyxk ~= nil then
+    player.replica.yyxk.skillspoint = amount
+end
+    ]])
+
+    return self:RemoteCall(command)
+end
+
+-- 设置狐心等级
+function DBGAPI:SetHuxinLevel(level)
+    level = tostring(math.clamp(math.floor(tonumber(level) or 0), 0, 100))
+
+    local command = BuildLocalYyxkCommand(
+        "local level = " .. level .. [[
+
+if level == 0 then
+    player.components.yyxkf:delBuff("cylv")
+else
+    player.components.yyxkf:addBuff("cylv", "cylv", nil, 1)
+    player.components.yyxkf.buff.cylv.layer = level
+    player.components.yyxkf:subBuff("cylv", 0, nil)
+end
+    ]])
+
+    return self:RemoteCall(command)
+end
+
+-- 技能树全开
+function DBGAPI:UnlockSkillTree()
+    local player = ThePlayer
+    if player ~= nil
+        and player.replica ~= nil
+        and player.replica.yyxk ~= nil
+        and type(player.replica.yyxk.skills) == "table"
+        and player.components ~= nil
+        and player.components.skilltreeupdater ~= nil then
+        local updater = player.components.skilltreeupdater
+
+        for i = 1, 9 do
+            for skill in pairs(player.replica.yyxk.skills) do
+                if updater:IsValidSkill(skill) then
+                    updater:ActivateSkill(skill, player.prefab)
+                end
+            end
+        end
+
+        return true
+    end
+
+    return false
+end
+
 -- 切换无限魔力
 function DBGAPI:ToggleInfMana()
     local command = BuildLocalDebugApiCommand([[
-            debug_api.inf_mana = not debug_api.inf_mana
-            if debug_api.inf_mana then
-                yyxk.DoMP = function(component, mp, b, p)
-                    if mp ~= nil and mp <= 0 then
-                        return true
-                    end
-                    return debug_api.old_DoMP(component, mp, b, p)
-                end
-            else
-                yyxk.DoMP = debug_api.old_DoMP
-            end
+debug_api.inf_mana = not debug_api.inf_mana
+if debug_api.inf_mana then
+    yyxk.DoMP = function(component, mp, b, p)
+        if mp ~= nil and mp <= 0 then
+            return true
+        end
+        return debug_api.old_DoMP(component, mp, b, p)
+    end
+else
+    yyxk.DoMP = debug_api.old_DoMP
+end
     ]], true)
 
     return self:RemoteCall(command)
@@ -329,11 +385,7 @@ local group = ]] .. string.format("%q", group) .. [[
 local key = ]] .. string.format("%q", key) .. [[
 local skills = yyxk[group]
 if type(skills) == "table" and skills[key] ~= nil then
-    local before = skills[key]
     skills[key] = ]] .. (target_enabled and "true" or "false") .. [[
-    print("[better_yyxk debug] SetSkillUnlocked", group, key, "target=", ]] .. tostring(target_enabled) .. [[, "client_enabled_type=", ]] .. string.format("%q", type(enabled)) .. [[, "client_enabled=", ]] .. string.format("%q", tostring(enabled)) .. [[, "before=", before, "after=", skills[key], "table=", skills)
-else
-    print("[better_yyxk debug] SetSkillUnlocked missing", group, key, "skills=", skills)
 end
     ]] .. STATUS_SYNC_BODY)
 

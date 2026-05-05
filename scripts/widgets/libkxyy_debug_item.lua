@@ -55,6 +55,24 @@ local function SetLeftAlignedTextRegion(text, left, width, height)
     text:SetPosition(left + width * 0.5, 0, 0)
 end
 
+local function SetWidgetHoverText(widget, text, options)
+    if widget ~= nil and widget.SetHoverText ~= nil then
+        widget:SetHoverText(text or "", options)
+    end
+end
+
+local function SetWidgetTreeHoverText(widget, text, options)
+    SetWidgetHoverText(widget, text, options)
+
+    if widget == nil or widget.children == nil then
+        return
+    end
+
+    for _, child in pairs(widget.children) do
+        SetWidgetTreeHoverText(child, text, options)
+    end
+end
+
 local LibKxyyDebugItem = Class(Widget, function(self, panel, width, height)
     Widget._ctor(self, "LibKxyyDebugItem")
 
@@ -146,12 +164,28 @@ local LibKxyyDebugItem = Class(Widget, function(self, panel, width, height)
     self:Layout()
 end)
 
+function LibKxyyDebugItem:SetTooltip(text)
+    local options = {
+        font = CHATFONT,
+        offset_y = -42,
+        colour = UICOLOURS.GOLD,
+        bg = true,
+    }
+
+    SetWidgetTreeHoverText(self.execute_button, text, options)
+end
+
 function LibKxyyDebugItem:Layout()
     local row_left = -self.item_width * 0.5 + ROW_PADDING
     local row_right = self.item_width * 0.5 - ROW_PADDING
     local button_x = row_right - BUTTON_WIDTH * 0.5
     local spinner_x = button_x - BUTTON_WIDTH * 0.5 - CONTROL_GAP - NUMBER_SPINNER_WIDTH * 0.5
     local label_right = spinner_x - NUMBER_SPINNER_WIDTH * 0.5 - CONTROL_GAP
+    if self.definition ~= nil and self.definition.type == "button_action" then
+        label_right = button_x - BUTTON_WIDTH * 0.5 - CONTROL_GAP
+    elseif self.definition ~= nil and self.definition.type == "toggle_action" then
+        label_right = row_right - 34 - CONTROL_GAP
+    end
     local label_width = math.max(80, label_right - row_left)
 
     SetLeftAlignedTextRegion(self.label, row_left, label_width, 28)
@@ -208,6 +242,7 @@ function LibKxyyDebugItem:SetData(definition)
 
     self:Show()
     self.label:SetString(definition.label or "")
+    self:SetTooltip(definition.description)
     self.bg:Show()
     self.label:SetColour(UICOLOURS.GOLD_SELECTED)
     self.label:SetHAlign(ANCHOR_LEFT)
@@ -229,6 +264,11 @@ function LibKxyyDebugItem:SetData(definition)
         self.number_spinner:SetOptions(MakeNumberOptions(definition))
         self.execute_button:SetText(definition.button_label or "执行")
         self:RefreshNumberDisplay()
+    elseif definition.type == "button_action" then
+        self.number_spinner:Hide()
+        self.execute_button:Show()
+        self.checkbox:Hide()
+        self.execute_button:SetText(definition.button_label or "执行")
     elseif definition.type == "toggle_action" then
         self.number_spinner:Hide()
         self.execute_button:Hide()
@@ -286,7 +326,9 @@ end
 
 function LibKxyyDebugItem:Execute()
     if self.definition == nil
-        or (self.definition.type ~= "number_action" and self.definition.type ~= "toggle_action") then
+        or (self.definition.type ~= "number_action"
+            and self.definition.type ~= "button_action"
+            and self.definition.type ~= "toggle_action") then
         return false
     end
 
