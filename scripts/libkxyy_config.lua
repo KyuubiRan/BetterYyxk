@@ -53,6 +53,19 @@ AddDefinition({
 })
 
 AddDefinition({
+    name = "debug_panel_hotkey",
+    type = "key",
+    label = "调试面板",
+    description = "按下开关调试面板",
+    default = -1,
+})
+
+AddDefinition({
+    type = "section",
+    label = "战斗辅助",
+})
+
+AddDefinition({
     name = "repeat_nilxin_skill_hotkey",
     type = "key",
     label = "快捷重复施法",
@@ -66,35 +79,6 @@ AddDefinition({
     label = "锁定重复施法",
     description = "按下锁定重复释放上次选择的魔法，再按取消锁定",
     default = -1,
-})
-
-AddDefinition({
-    name = "wanda_teleport_ui_hotkey",
-    type = "key",
-    label = "一时之间",
-    description = "按下快速开关一时之间 UI",
-    default = -1,
-})
-
-AddDefinition({
-    name = "summon_shadow_chest_hotkey",
-    type = "key",
-    label = "召唤小影",
-    description = "按下快速召唤小影",
-    default = -1,
-})
-
-AddDefinition({
-    name = "debug_panel_hotkey",
-    type = "key",
-    label = "调试面板",
-    description = "按下开关调试面板",
-    default = -1,
-})
-
-AddDefinition({
-    type = "section",
-    label = "战斗辅助",
 })
 
 AddDefinition({
@@ -122,6 +106,27 @@ AddDefinition({
     min = 1,
     max = 10,
     step = 0.5,
+})
+
+AddDefinition({
+    type = "section",
+    label = "其他辅助",
+})
+
+AddDefinition({
+    name = "wanda_teleport_ui_hotkey",
+    type = "key",
+    label = "一时之间",
+    description = "按下快速开关一时之间 UI",
+    default = -1,
+})
+
+AddDefinition({
+    name = "summon_shadow_chest_hotkey",
+    type = "key",
+    label = "召唤小影",
+    description = "按下快速召唤小影",
+    default = -1,
 })
 
 AddDefinition({

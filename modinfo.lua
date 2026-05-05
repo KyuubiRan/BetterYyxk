@@ -1,7 +1,7 @@
 name = "「空心夜雨」"
 description = "夜雨空心辅助模组 重置版"
 author = "KyuubiRan"
-version = "1.0.2"
+version = "1.0.3"
 icon_atlas = "modicon.xml"
 icon = "modicon.tex"
 

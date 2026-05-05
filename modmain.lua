@@ -26,6 +26,7 @@ local YyxkApi = require("yyxk_api")
 local DBGAPI = require("yyxk_debug_api")
 
 local MAGIC_WHEEL_SHORT_PRESS_TIME = 0.2
+local DEFAULT_WEAPON_MAGIC_KEY = "YYXK_GATHER"
 local HONGYE_TRUE_DAMAGE_EQUIP_DELAY = 0.1
 local HONGYE_TRUE_DAMAGE_PENDING_TIMEOUT = 1
 
@@ -63,6 +64,14 @@ local function GetEnabledMagicOptions()
     return options
 end
 
+local function GetMagicOptionByKey(key)
+    for _, option in ipairs(LibKxyyMagicData) do
+        if option.key == key then
+            return option
+        end
+    end
+end
+
 local function IsMagicWheelOptionChanged(changed)
     for _, option in ipairs(LibKxyyMagicData) do
         if changed[LibKxyyConfig:GetMagicEnabledName(option.key)] ~= nil then
@@ -76,6 +85,12 @@ end
 local function RefreshMagicWheelOptions()
     if active_magic_wheel ~= nil then
         active_magic_wheel:SetOptions(GetEnabledMagicOptions())
+    end
+end
+
+local function EnsureDefaultCurrentWeaponMagic()
+    if current_weapon_magic_option == nil then
+        current_weapon_magic_option = GetMagicOptionByKey(DEFAULT_WEAPON_MAGIC_KEY)
     end
 end
 
@@ -94,6 +109,7 @@ local function SetWeaponMagic(option, skip_history)
 
     local api = GetYyxkApi()
     if api ~= nil and api:SetWeaponMagic(option.key) then
+        EnsureDefaultCurrentWeaponMagic()
         if not skip_history and not IsSameMagicOption(option, current_weapon_magic_option) then
             previous_weapon_magic_option = current_weapon_magic_option
             current_weapon_magic_option = option
@@ -107,6 +123,8 @@ local function SetWeaponMagic(option, skip_history)
 end
 
 local function QuickSwitchLastWeaponMagic()
+    EnsureDefaultCurrentWeaponMagic()
+
     local api = GetYyxkApi()
     if previous_weapon_magic_option == nil then
         if api ~= nil then

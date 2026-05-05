@@ -69,6 +69,7 @@ function API:AttachToPlayer(inst)
     return player_api
 end
 
+-- 锁定施法hook
 function API:_OnSetNilSkill(skillKey)
     if NILXIN_SKILL_LIST[skillKey] == nil then
         return
@@ -84,6 +85,7 @@ function API:_OnSetNilSkill(skillKey)
     self._last_nilxin_skill_key = skillKey
 end
 
+-- lunge吸附
 function API:IsValidLungeAttractionTarget(target)
     if target == nil
         or target == self.inst
@@ -163,6 +165,7 @@ function API:GetLungeAttractedArgs(...)
     return args
 end
 
+-- 初始化hook
 function API:InitHooks()
     if not self:IsLocalYyxkPlayer(self.inst) then
         return false
@@ -220,6 +223,7 @@ function API:GetYyxkReplica()
     return self._yyxk_replica
 end
 
+-- yyxk:ToServer原始调用
 function API:SendToServer(fnName, ...)
     if not self:IsLocalYyxkPlayer(self.inst) then return false end
 
@@ -232,6 +236,7 @@ function API:SendToServer(fnName, ...)
     return true
 end
 
+-- 说话
 function API:Say(text)
     local inst = self.inst
     if inst ~= nil and inst.components ~= nil and inst.components.talker ~= nil then
@@ -239,6 +244,7 @@ function API:Say(text)
     end
 end
 
+-- 获取装备的武器
 function API:GetEquippedWeapon()
     local inst = self.inst
     if not self:IsLocalYyxkPlayer(inst) then return nil end
@@ -246,18 +252,22 @@ function API:GetEquippedWeapon()
     return inst.replica.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
 end
 
+-- 是否为夜雨
 function API:IsYeyu()
     return self.inst ~= nil and self.inst:HasTag("yeyu")
 end
 
+-- 是否为空心
 function API:IsNilxin()
     return self.inst ~= nil and self.inst:HasTag("nilxin")
 end
 
+-- 姐妹召唤
 function API:IsSisterSummoned()
     return self.inst ~= nil and self.inst.yyxk_isjiemei == true
 end
 
+-- 是否装备魔杖
 function API:IsStaffEquipped()
     local weapon = self:GetEquippedWeapon()
     if weapon == nil then return false end
@@ -265,6 +275,7 @@ function API:IsStaffEquipped()
     return weapon.prefab == "nilxin_scepter"
 end
 
+-- 是否可以切换魔杖功能
 function API:CanChangeStaffMagic(showReason)
     if not self:IsNilxin() then
         if showReason then
@@ -283,6 +294,7 @@ function API:CanChangeStaffMagic(showReason)
     return true
 end
 
+-- 是否装备红叶
 function API:IsSwordEquipped()
     local weapon = self:GetEquippedWeapon()
     if weapon == nil then return false end
@@ -290,14 +302,17 @@ function API:IsSwordEquipped()
     return weapon.prefab == "yeyu_sword"
 end
 
+-- 设置魔杖功能
 function API:SetWeaponMagic(magicKey)
     return self:SendToServer("magicWandSpelltype", magicKey)
 end
 
+-- 设置施法技能
 function API:SetSkill(skillKey)
     return self:SendToServer("setNilSkill", skillKey)
 end
 
+-- 重复上一次施法技能
 function API:RepeatLastSkill()
     local skillKey = self._last_nilxin_skill_key
     local skillName = skillKey ~= nil and NILXIN_SKILL_LIST[skillKey] or nil
@@ -315,6 +330,7 @@ function API:RepeatLastSkill()
     return false
 end
 
+-- 锁定重复施法
 function API:StartLockedRepeatSkill()
     local skillKey = self._last_nilxin_skill_key
     local skillName = skillKey ~= nil and NILXIN_SKILL_LIST[skillKey] or nil
@@ -345,6 +361,7 @@ function API:StartLockedRepeatSkill()
     return true
 end
 
+-- 停止锁定重复施法
 function API:StopLockedRepeatSkill(showMessage)
     if self._locked_repeat_task ~= nil then
         self._locked_repeat_task:Cancel()
@@ -360,6 +377,7 @@ function API:StopLockedRepeatSkill(showMessage)
     end
 end
 
+-- 切换锁定重复施法
 function API:ToggleLockedRepeatSkill()
     if self._locked_repeat_task ~= nil then
         self:StopLockedRepeatSkill(true)
@@ -369,6 +387,7 @@ function API:ToggleLockedRepeatSkill()
     return self:StartLockedRepeatSkill()
 end
 
+-- 切换一时之间UI显示
 function API:ToggleWandaTeleportUi()
     local inst = self.inst
     if not self:IsLocalYyxkPlayer(inst) then return end
@@ -398,10 +417,12 @@ function API:ToggleWandaTeleportUi()
     end
 end
 
+-- 快捷小影
 function API:SummonShadowChest()
     return self:SendToServer("cykjccFN")
 end
 
+-- 寻找并装备（仅物品栏）
 function API:FindAndEquipInInv(prefab)
     local inst = self.inst
     local inv = inst.replica.inventory
@@ -423,10 +444,12 @@ function API:FindAndEquipInInv(prefab)
     return false
 end
 
+-- 寻找并装备红叶
 function API:FindAndEquipYeyuSword()
     return self:FindAndEquipInInv("yeyu_sword")
 end
 
+-- 使用手中的物品
 function API:UseItemInHand()
     local inst = self.inst
     local inv = inst.replica.inventory
