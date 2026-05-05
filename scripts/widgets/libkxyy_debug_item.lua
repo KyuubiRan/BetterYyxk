@@ -56,8 +56,16 @@ local function SetLeftAlignedTextRegion(text, left, width, height)
 end
 
 local function SetWidgetHoverText(widget, text, options)
-    if widget ~= nil and widget.SetHoverText ~= nil then
-        widget:SetHoverText(text or "", options)
+    if widget == nil then
+        return
+    end
+
+    if text ~= nil and text ~= "" then
+        if widget.SetHoverText ~= nil then
+            widget:SetHoverText(text, options)
+        end
+    elseif widget.ClearHoverText ~= nil then
+        widget:ClearHoverText()
     end
 end
 
