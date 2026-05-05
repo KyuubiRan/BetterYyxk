@@ -4,7 +4,7 @@ local TextEdit = require("widgets/textedit")
 local TEMPLATES = require("widgets/redux/templates")
 
 local KEY_NONE = -1
-local LABEL_LEFT = -103
+local LABEL_LEFT = -123
 local CHECKBOX_LABEL_WIDTH_OFFSET = 120
 local KEY_LABEL_WIDTH_OFFSET = 188
 local NUMBER_LABEL_WIDTH_OFFSET = 188
@@ -168,7 +168,6 @@ local LibKxyyConfigItem = Class(Widget, function(self, panel, width, height)
     self.label:SetColour(UICOLOURS.GOLD_SELECTED)
     self.label:SetHAlign(ANCHOR_LEFT)
     self.label:SetRegionSize(width - 120, 28)
-    self.label:SetPosition(-26, 0, 0)
 
     self.key_button = self:AddChild(TEMPLATES.StandardButton(function()
         self:BeginKeyCapture()
