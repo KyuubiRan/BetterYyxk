@@ -319,7 +319,6 @@ function LibKxyyDebugPanel:Execute(definition)
             if self.options_scroll_list ~= nil then
                 self.options_scroll_list:RefreshView()
             end
-            DBGAPI:SyncStatus()
             return value
         end
 

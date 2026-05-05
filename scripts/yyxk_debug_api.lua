@@ -155,12 +155,14 @@ local debug_api = yyxk.__DebugApi
 
 local function BuildYyxkCommand(player_expr, body)
     return [[
-local player = ]] .. player_expr .. [[
-if player ~= nil and player.components ~= nil and player.components.yyxk ~= nil then
-    local yyxk = player.components.yyxk
+        local player = ]] .. player_expr .. [[
+        if player ~= nil
+            and player.components ~= nil
+            and player.components.yyxk ~= nil then
+            local yyxk = player.components.yyxk
     ]] .. body .. [[
-end
-]]
+        end
+    ]]
 end
 
 local function BuildLocalYyxkCommand(body)
@@ -380,6 +382,12 @@ local key = ]] .. string.format("%q", key) .. [[
 local skills = yyxk[group]
 if type(skills) == "table" and skills[key] ~= nil then
     skills[key] = ]] .. (target_enabled and "true" or "false") .. [[
+    if yyxk.__DebugApi ~= nil and type(yyxk.__DebugApi.status) == "table" then
+        if yyxk.__DebugApi.status[group] == nil then
+            yyxk.__DebugApi.status[group] = {}
+        end
+        yyxk.__DebugApi.status[group][key] = skills[key] == true
+    end
 end
     ]] .. STATUS_SYNC_BODY)
 
