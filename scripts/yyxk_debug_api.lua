@@ -346,6 +346,15 @@ function DBGAPI:UnlockSkillTree()
     return true
 end
 
+-- 解锁身法和大狐狸
+function DBGAPI:UnlockMovementFox()
+    local command = BuildLocalYyxkCommand([[
+yyxk.magicWandSkill = {}
+    ]])
+
+    return self:RemoteCall(command)
+end
+
 -- 切换无限魔力
 function DBGAPI:ToggleInfMana()
     local command = BuildLocalDebugApiCommand([[

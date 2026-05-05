@@ -108,6 +108,15 @@ AddDefinition({
     end,
 })
 AddDefinition({
+    name = "unlock_movement_fox",
+    type = "button_action",
+    label = "解锁身法 & 大狐狸",
+    button_label = "执行",
+    action = function()
+        return DBGAPI:UnlockMovementFox()
+    end,
+})
+AddDefinition({
     type = "section",
     label = "魔力相关",
 })
