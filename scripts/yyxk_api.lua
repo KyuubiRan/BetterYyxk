@@ -464,7 +464,9 @@ function API:ResetSkillTree()
     end
 
     for k, _ in pairs(STRINGS.YYXK.SKILLTREE) do
-        self:SendToServer("settings", "skillsreset", k)
+        if self.inst.replica.yyxk.skills[k] > 0 then
+            self:SendToServer("settings", "skillsreset", k)
+        end
     end
 end
 

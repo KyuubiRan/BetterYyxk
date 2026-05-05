@@ -145,10 +145,10 @@ for _, option in ipairs(MagicData) do
     })
 end
 
-AddDefinition({
-    type = "section",
-    label = "其他功能",
-})
+-- AddDefinition({
+--     type = "section",
+--     label = "其他功能",
+-- })
 
 -- AddDefinition({
 --     name = "reset_skill_tree",
