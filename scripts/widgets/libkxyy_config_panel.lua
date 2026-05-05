@@ -1,6 +1,7 @@
 local Text = require("widgets/text")
 local Widget = require("widgets/widget")
 local TEMPLATES = require("widgets/redux/templates")
+local PopupDialogScreen = require("screens/redux/popupdialog")
 local ModConfig = require("libkxyy_config")
 local KeyListener = require("libkxyy_key_listener")
 local LibKxyyConfigItem = require("widgets/libkxyy_config_item")
@@ -102,6 +103,48 @@ function LibKxyyConfigPanel:SetNumber(name, value)
     self.config:SaveBatch({
         [name] = value,
     })
+end
+
+function LibKxyyConfigPanel:RunAction(definition)
+    if definition == nil or definition.action == nil then
+        return false
+    end
+
+    local function execute()
+        if definition.action(definition) ~= true
+            and self.owner ~= nil
+            and self.owner.components ~= nil
+            and self.owner.components.talker ~= nil then
+            self.owner.components.talker:Say("执行失败")
+        end
+    end
+
+    if definition.confirm_title ~= nil and TheFrontEnd ~= nil then
+        local popup = PopupDialogScreen(
+            definition.confirm_title,
+            definition.confirm_body or "",
+            {
+                {
+                    text = "确定",
+                    cb = function()
+                        TheFrontEnd:PopScreen()
+                        execute()
+                    end,
+                },
+                {
+                    text = "取消",
+                    cb = function()
+                        TheFrontEnd:PopScreen()
+                    end,
+                },
+            }
+        )
+        TheFrontEnd:PushScreen(popup)
+        return true
+    end
+
+    execute()
+    return true
 end
 
 function LibKxyyConfigPanel:BeginKeyCapture(item)

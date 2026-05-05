@@ -8,7 +8,10 @@ local LABEL_LEFT = -123
 local CHECKBOX_LABEL_WIDTH_OFFSET = 120
 local KEY_LABEL_WIDTH_OFFSET = 188
 local NUMBER_LABEL_WIDTH_OFFSET = 188
+local BUTTON_LABEL_WIDTH_OFFSET = 188
 local NUMBER_SPINNER_WIDTH = 112
+local BUTTON_WIDTH = 92
+local BUTTON_HEIGHT = 34
 local KEY_TOOLTIP = "点击设置按键，点击后右键取消设置按键"
 local KEY_NAME_MAP = {
     [KEY_NONE] = "None",
@@ -128,8 +131,16 @@ local function IsClearKeyControl(control, down)
 end
 
 local function SetWidgetHoverText(widget, text, options)
-    if widget ~= nil and widget.SetHoverText ~= nil then
-        widget:SetHoverText(text or "", options)
+    if widget == nil then
+        return
+    end
+
+    if text ~= nil and text ~= "" then
+        if widget.SetHoverText ~= nil then
+            widget:SetHoverText(text, options)
+        end
+    elseif widget.ClearHoverText ~= nil then
+        widget:ClearHoverText()
     end
 end
 
@@ -174,6 +185,12 @@ local LibKxyyConfigItem = Class(Widget, function(self, panel, width, height)
     end, "None", {92, 34}))
     self.key_button:SetPosition(width * 0.5 - 58, 0, 0)
     self.key_button:Hide()
+
+    self.action_button = self:AddChild(TEMPLATES.StandardButton(function()
+        self:RunAction()
+    end, "执行", {BUTTON_WIDTH, BUTTON_HEIGHT}))
+    self.action_button:SetPosition(width * 0.5 - 58, 0, 0)
+    self.action_button:Hide()
 
     self.number_spinner = self:AddChild(TEMPLATES.StandardSpinner({}, NUMBER_SPINNER_WIDTH, 34, CHATFONT, 22, function(data)
         if not self.refreshing_number then
@@ -314,6 +331,7 @@ function LibKxyyConfigItem:SetRightControlTooltip(text)
 
     SetWidgetTreeHoverText(self.checkbox, "", options)
     SetWidgetTreeHoverText(self.key_button, text, options)
+    SetWidgetTreeHoverText(self.action_button, text, options)
     SetWidgetTreeHoverText(self.number_spinner, text, options)
 end
 
@@ -383,12 +401,14 @@ function LibKxyyConfigItem:SetData(definition)
     if definition.type == "checkbox" then
         self.checkbox:Show()
         self.key_button:Hide()
+        self.action_button:Hide()
         self.number_spinner:Hide()
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - CHECKBOX_LABEL_WIDTH_OFFSET, 28)
         self:SetChecked(self.panel.config:Get(definition.name, definition.default))
     elseif definition.type == "key" then
         self.checkbox:Hide()
         self.key_button:Show()
+        self.action_button:Hide()
         self.number_spinner:Hide()
         self:SetRightControlTooltip(KEY_TOOLTIP)
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - KEY_LABEL_WIDTH_OFFSET, 28)
@@ -396,15 +416,25 @@ function LibKxyyConfigItem:SetData(definition)
     elseif definition.type == "number" then
         self.checkbox:Hide()
         self.key_button:Hide()
+        self.action_button:Hide()
         self.number_spinner:Show()
         self.number_spinner:SetOptions(MakeNumberOptions(definition))
         self:SetRightControlTooltip(definition.description)
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - NUMBER_LABEL_WIDTH_OFFSET, 28)
         self:RefreshNumberDisplay()
+    elseif definition.type == "button" then
+        self.checkbox:Hide()
+        self.key_button:Hide()
+        self.action_button:Show()
+        self.number_spinner:Hide()
+        self.action_button:SetText(definition.button_label or "执行")
+        self:SetRightControlTooltip(definition.description)
+        SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - BUTTON_LABEL_WIDTH_OFFSET, 28)
     elseif definition.type == "section" then
         self.bg:Hide()
         self.checkbox:Hide()
         self.key_button:Hide()
+        self.action_button:Hide()
         self.number_spinner:Hide()
         self.label:SetColour(UICOLOURS.GOLD)
         self.label:SetHAlign(ANCHOR_MIDDLE)
@@ -413,6 +443,7 @@ function LibKxyyConfigItem:SetData(definition)
     else
         self.checkbox:Hide()
         self.key_button:Hide()
+        self.action_button:Hide()
         self.number_spinner:Hide()
     end
 end
@@ -477,6 +508,14 @@ function LibKxyyConfigItem:StepNumber(direction)
     self:RefreshNumberDisplay()
 end
 
+function LibKxyyConfigItem:RunAction()
+    if self.definition == nil or self.definition.type ~= "button" then
+        return false
+    end
+
+    return self.panel:RunAction(self.definition)
+end
+
 function LibKxyyConfigItem:Activate()
     if self.definition == nil then
         return false
@@ -487,6 +526,8 @@ function LibKxyyConfigItem:Activate()
     elseif self.definition.type == "key" then
         self:BeginKeyCapture()
         return true
+    elseif self.definition.type == "button" then
+        return self:RunAction()
     end
 
     return false

@@ -145,6 +145,25 @@ for _, option in ipairs(MagicData) do
     })
 end
 
+AddDefinition({
+    type = "section",
+    label = "其他功能",
+})
+
+AddDefinition({
+    name = "reset_skill_tree",
+    type = "button",
+    label = "重置技能树",
+    button_label = "执行",
+    confirm_title = "确认重置技能树",
+    confirm_body = "确定要重置技能树吗？",
+    action = function()
+        local API = require("yyxk_api")
+        local player_api = API:GetCurrent()
+        return player_api ~= nil and player_api:ResetSkillTree()
+    end,
+})
+
 local ModConfig = {
     values = {},
     ui = {},
