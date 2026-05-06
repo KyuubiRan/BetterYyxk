@@ -242,6 +242,14 @@ AddDefinition({
     end,
 })
 AddDefinition({
+    name = "no_cd",
+    type = "toggle_action",
+    label = "无CD",
+    action = function()
+        return DBGAPI:ToggleNoCooldown()
+    end,
+})
+AddDefinition({
     type = "section",
     label = "魔力相关",
 })
@@ -317,6 +325,7 @@ local LibKxyyDebugPanel = Class(Widget, function(self, owner)
     self.values = {}
     self.toggles = {
         inf_mana = false,
+        no_cd = false,
         yeyunilxin = false,
         yyxk_amulet = false,
         yeyuup = {},
@@ -495,6 +504,9 @@ function LibKxyyDebugPanel:ApplyStatus(status)
 
     if status.inf_mana ~= nil then
         self.toggles.inf_mana = status.inf_mana == true
+    end
+    if status.no_cd ~= nil then
+        self.toggles.no_cd = status.no_cd == true
     end
     if status.yeyunilxin ~= nil then
         self.toggles.yeyunilxin = status.yeyunilxin == true

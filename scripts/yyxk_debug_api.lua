@@ -1,6 +1,7 @@
 local DBGAPI = {
     status = {
         inf_mana = false,
+        no_cd = false,
         yeyunilxin = false,
         yyxk_amulet = false,
         xin = 100,
@@ -15,7 +16,7 @@ local DBGAPI = {
 }
 
 local DEBUG_STATUS_CLIENT_FN = "__LibKxyyDebugStatus"
-local DEBUG_STATUS_VERSION = "__v3"
+local DEBUG_STATUS_VERSION = "__v4"
 local YEYU_SKILL_KEYS = {
     "multithrust",
     "crazy",
@@ -170,6 +171,7 @@ local function BuildStatusSyncBody()
         string.format("%q", DEBUG_STATUS_CLIENT_FN),
         string.format("%q", DEBUG_STATUS_VERSION),
         "status_debug_api.inf_mana == true",
+        "status_debug_api.no_cd == true",
         "yyxk.yeyunilxin == true",
         "tonumber(yyxk.xin) or 0",
         "tonumber(yyxk.love) or 0",
@@ -215,11 +217,16 @@ local DEBUG_API_INIT_BODY = [[
 if yyxk.__DebugApi == nil then
     yyxk.__DebugApi = {
         inf_mana = false,
+        no_cd = false,
         old_DoMP = yyxk.DoMP,
+        old_iscdFN = yyxk.iscdFN,
     }
 end
 if yyxk.__DebugApi.old_DoMP == nil then
     yyxk.__DebugApi.old_DoMP = yyxk.DoMP
+end
+if yyxk.__DebugApi.old_iscdFN == nil then
+    yyxk.__DebugApi.old_iscdFN = yyxk.iscdFN
 end
 local debug_api = yyxk.__DebugApi
 ]]
@@ -285,11 +292,12 @@ function DBGAPI:Init(inst)
     self.inst = inst
     local replica = inst.replica ~= nil and inst.replica.yyxk or nil
     if replica ~= nil then
-        replica[DEBUG_STATUS_CLIENT_FN] = function(_, version, inf_mana, ...)
+        replica[DEBUG_STATUS_CLIENT_FN] = function(_, version, inf_mana, no_cd, ...)
             if version == DEBUG_STATUS_VERSION then
                 local values = { ... }
                 local status = {
                     inf_mana = inf_mana == true,
+                    no_cd = no_cd == true,
                     yeyunilxin = values[1] == true,
                     xin = tonumber(values[2]) or 0,
                     love = tonumber(values[3]) or 0,
@@ -346,6 +354,10 @@ function DBGAPI:ApplyStatus(status)
 
     if status.inf_mana ~= nil then
         self.status.inf_mana = status.inf_mana == true
+    end
+
+    if status.no_cd ~= nil then
+        self.status.no_cd = status.no_cd == true
     end
 
     if status.yeyunilxin ~= nil then
@@ -646,6 +658,22 @@ if debug_api.inf_mana then
     end
 else
     yyxk.DoMP = debug_api.old_DoMP
+end
+    ]], true)
+
+    return self:RemoteCall(command)
+end
+
+-- 切换无冷却
+function DBGAPI:ToggleNoCooldown()
+    local command = BuildLocalDebugApiCommand([[
+debug_api.no_cd = not debug_api.no_cd
+if debug_api.no_cd then
+    yyxk.iscdFN = function(component, n, t, say)
+        return true
+    end
+else
+    yyxk.iscdFN = debug_api.old_iscdFN
 end
     ]], true)
 
