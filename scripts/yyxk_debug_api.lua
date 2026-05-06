@@ -422,7 +422,7 @@ end
 -- 设置技能点
 function DBGAPI:SetSkillPoints(amount)
     amount = math.floor(tonumber(amount) or 0)
-    ThePlayer.replica.yyxk.skillspoint = amount
+    self.inst.replica.yyxk.skillspoint = amount
 
     local command = BuildLocalYyxkCommandWithValue("amount", amount, [[
 if player.replica ~= nil and player.replica.yyxk ~= nil then
@@ -452,12 +452,12 @@ end
 
 -- 技能树全开
 function DBGAPI:UnlockSkillTree()
-    local updater = ThePlayer.components.skilltreeupdater
+    local updater = self.inst.components.skilltreeupdater
 
     for i = 1, 9 do
-        for skill in pairs(ThePlayer.replica.yyxk.skills) do
+        for skill in pairs(self.inst.replica.yyxk.skills) do
             if updater:IsValidSkill(skill) then
-                updater:ActivateSkill(skill, ThePlayer.prefab)
+                updater:ActivateSkill(skill, self.inst.prefab)
             end
         end
     end

@@ -457,16 +457,21 @@ function API:UseItemInHand()
     inv:UseItemFromInvTile(inv:GetEquippedItem(EQUIPSLOTS.HANDS))
 end
 
--- 重置技能树
+-- 重置单个天赋
+function API:ResetSkillTreeSingle(key)
+    if self.inst.replica.yyxk.skills[key] > 0 then
+        self:SendToServer("settings", "skillsreset", key)
+    end
+end
+
+-- 重置天赋树所有天赋
 function API:ResetSkillTree()
     if STRINGS.YYXK == nil or STRINGS.YYXK.SKILLTREE == nil then
         return
     end
 
     for k, _ in pairs(STRINGS.YYXK.SKILLTREE) do
-        if self.inst.replica.yyxk.skills[k] > 0 then
-            self:SendToServer("settings", "skillsreset", k)
-        end
+        self:ResetSkillTreeSingle(k)
     end
 end
 
