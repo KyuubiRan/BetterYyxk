@@ -114,6 +114,15 @@ AddDefinition({
 })
 
 AddDefinition({
+    name = "right_click_reset_skill_tree",
+    type = "checkbox",
+    label = "右键重置天赋",
+    description = "开启后，允许你在天赋界面右键点击对应天赋进行重置\n注：需要消耗仓库中的 白尾巴x1 和 灰宝石x1",
+    default = true,
+})
+
+
+AddDefinition({
     name = "wanda_teleport_ui_hotkey",
     type = "key",
     label = "一时之间",
@@ -145,24 +154,6 @@ for _, option in ipairs(MagicData) do
     })
 end
 
--- AddDefinition({
---     type = "section",
---     label = "其他功能",
--- })
-
--- AddDefinition({
---     name = "reset_skill_tree",
---     type = "button",
---     label = "重置技能树",
---     button_label = "执行",
---     confirm_title = "确认重置技能树",
---     confirm_body = "确定要重置技能树吗？",
---     action = function()
---         local API = require("yyxk_api")
---         local player_api = API:GetCurrent()
---         return player_api ~= nil and player_api:ResetSkillTree()
---     end,
--- })
 
 local ModConfig = {
     values = {},

@@ -409,9 +409,11 @@ local function ApplyConfigToRuntime()
     LibKxyyKeyListener:SetActionKey("debug_panel", LibKxyyConfig:Get("debug_panel_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("summon_shadow_chest", LibKxyyConfig:Get("summon_shadow_chest_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("repeat_nilxin_skill", LibKxyyConfig:Get("repeat_nilxin_skill_hotkey", -1))
-    LibKxyyKeyListener:SetActionKey("locked_repeat_nilxin_skill", LibKxyyConfig:Get("locked_repeat_nilxin_skill_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("locked_repeat_nilxin_skill",
+        LibKxyyConfig:Get("locked_repeat_nilxin_skill_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("hongye_true_damage", LibKxyyConfig:Get("hongye_true_damage_hotkey", -1))
-    LibKxyyKeyListener:SetActionKey("yeyu_lunge_attraction_toggle", LibKxyyConfig:Get("yeyu_lunge_attraction_toggle_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("yeyu_lunge_attraction_toggle",
+        LibKxyyConfig:Get("yeyu_lunge_attraction_toggle_hotkey", -1))
     RefreshMagicWheelOptions()
 end
 
@@ -599,3 +601,86 @@ end)
 AddClassPostConstruct("widgets/controls", function(self)
     AttachControlsUI(self)
 end)
+
+-- 右键重置天赋
+do
+    local PopupDialog = require("screens/redux/popupdialog")
+
+    AddClassPostConstruct("widgets/redux/skilltreewidget", function(widget)
+        local tree = widget.root.tree
+        if tree == nil or tree.skillgraphics == nil then
+            return
+        end
+
+        for skill, graphics in pairs(tree.skillgraphics) do
+            local btn = graphics.button
+            if btn ~= nil then
+                local old_fn = btn.OnControl
+                btn.OnControl = function(btn_self, control, down)
+                    if old_fn ~= nil then
+                        old_fn(btn_self, control, down)
+                    end
+
+                    if down or control ~= CONTROL_SECONDARY then
+                        return
+                    end
+
+                    if ThePlayer == nil or ThePlayer._YyxkApi == nil then
+                        return
+                    end
+
+                    if not LibKxyyConfig:Get("right_click_reset_skill_tree", true) then
+                        return
+                    end
+
+                    if widget.readonly then
+                        return
+                    end
+
+                    if graphics.status == nil or not graphics.status.activated then
+                        return
+                    end
+
+                    if STRINGS.YYXK == nil or STRINGS.YYXK.SKILLTREE == nil then
+                        return
+                    end
+
+                    local info = STRINGS.YYXK.SKILLTREE[skill]
+                    if info == nil then
+                        return
+                    end
+
+                    local title = info[1] or skill
+                    local desc = info[2] or ""
+                    local text = "是否重置「" .. title .. "」天赋？\n\n" .. desc .. "\n\n消耗仓库：白尾巴x1  灰宝石x1\n\n注：需要重新打开UI界面"
+
+                    TheFrontEnd:PushScreen(PopupDialog(
+                        "提示",
+                        text,
+                        {
+                            {
+                                text = STRINGS.YYXK.UIENUM[1] or "确定",
+                                cb = function()
+                                    local api = YyxkApi:GetCurrent()
+                                    if api then
+                                        api:ResetSkillTreeSingle(skill)
+                                    end
+                                    TheFrontEnd:PopScreen()
+                                end,
+                            },
+                            {
+                                text = STRINGS.YYXK.UIENUM[2] or "取消",
+                                cb = function()
+                                    TheFrontEnd:PopScreen()
+                                end,
+                            },
+                        },
+                        nil,
+                        "big",
+                        "dark"
+                    ))
+                end
+            end
+        end
+    end)
+end
