@@ -136,11 +136,17 @@ local function SetWidgetHoverText(widget, text, options)
     end
 
     if text ~= nil and text ~= "" then
+        if widget._libkxyy_hover_text == text and widget.hovertext ~= nil then
+            return
+        end
+
         if widget.SetHoverText ~= nil then
             widget:SetHoverText(text, options)
+            widget._libkxyy_hover_text = text
         end
     elseif widget.ClearHoverText ~= nil then
         widget:ClearHoverText()
+        widget._libkxyy_hover_text = nil
     end
 end
 
@@ -153,6 +159,24 @@ local function SetWidgetTreeHoverText(widget, text, options)
 
     for _, child in pairs(widget.children) do
         SetWidgetTreeHoverText(child, text, options)
+    end
+end
+
+local function HideWidgetTreeHoverText(widget)
+    if widget == nil then
+        return
+    end
+
+    if widget.hovertext_root ~= nil then
+        widget.hovertext_root:Hide()
+    end
+
+    if widget.children == nil then
+        return
+    end
+
+    for _, child in pairs(widget.children) do
+        HideWidgetTreeHoverText(child)
     end
 end
 
@@ -335,6 +359,13 @@ function LibKxyyConfigItem:SetRightControlTooltip(text)
     SetWidgetTreeHoverText(self.number_spinner, text, options)
 end
 
+function LibKxyyConfigItem:HideRightControlTooltips()
+    HideWidgetTreeHoverText(self.checkbox)
+    HideWidgetTreeHoverText(self.key_button)
+    HideWidgetTreeHoverText(self.action_button)
+    HideWidgetTreeHoverText(self.number_spinner)
+end
+
 function LibKxyyConfigItem:RefreshKeyDisplay()
     if self.definition == nil or self.definition.type ~= "key" then
         return
@@ -393,7 +424,7 @@ function LibKxyyConfigItem:SetData(definition)
     self:Show()
     self.label:SetString(definition.label or definition.name or "未命名配置")
     self:SetTooltip(definition.description)
-    self:SetRightControlTooltip(nil)
+    self:HideRightControlTooltips()
     self.bg:Show()
     self.label:SetColour(UICOLOURS.GOLD_SELECTED)
     self.label:SetHAlign(ANCHOR_LEFT)
