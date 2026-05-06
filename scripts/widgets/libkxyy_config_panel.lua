@@ -94,7 +94,7 @@ AddDefinition({
     name = "hongye_true_damage_hotkey",
     type = "key",
     label = "红叶真伤",
-    description = "按下快速装备并开启红叶真伤模式",
+    description = "按下快速装备(需要在物品栏内)并开启红叶真伤模式",
     default = -1,
 })
 
