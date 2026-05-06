@@ -61,11 +61,19 @@ local function SetWidgetHoverText(widget, text, options)
     end
 
     if text ~= nil and text ~= "" then
+        if widget._libkxyy_hover_text == text and widget.hovertext ~= nil then
+            return
+        end
+
         if widget.SetHoverText ~= nil then
             widget:SetHoverText(text, options)
+            widget._libkxyy_hover_text = text
         end
-    elseif widget.ClearHoverText ~= nil then
+    elseif widget.hovertext ~= nil and widget.ClearHoverText ~= nil then
         widget:ClearHoverText()
+        widget._libkxyy_hover_text = nil
+    else
+        widget._libkxyy_hover_text = nil
     end
 end
 
