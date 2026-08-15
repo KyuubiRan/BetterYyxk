@@ -13,6 +13,10 @@ local NILXIN_SKILL_LIST = {
     moon = "月",
     shadow = "暗",
 }
+local SEARCHABLE_EQUIPPED_CONTAINER_PREFABS = {
+    "nilxin_scepter",
+    "yyxk_amulet",
+}
 local LOCKED_REPEAT_INTERVAL = 0.1
 local LUNGE_ATTRACTION_CANT_TAGS = { "player", "playerghost", "FX", "NOCLICK", "noattack", "notarget", "companion" }
 local LUNGE_ATTRACTION_ONEOF_TAGS = { "_combat", "_health" }
@@ -25,6 +29,67 @@ local function PackArgs(...)
         n = select("#", ...),
         ...
     }
+end
+
+local function FindItemInSlots(holder, prefab)
+    if holder == nil
+        or holder.GetNumSlots == nil
+        or holder.GetItemInSlot == nil then
+        return nil
+    end
+
+    local num_slots = holder:GetNumSlots()
+    if type(num_slots) ~= "number" then
+        return nil
+    end
+
+    for slot = 1, num_slots do
+        local item = holder:GetItemInSlot(slot)
+        if item ~= nil and item.prefab == prefab then
+            return item
+        end
+    end
+end
+
+local function FindItemInEquippedContainers(inv, prefab)
+    if inv == nil or inv.GetEquips == nil then
+        return nil
+    end
+
+    local equips = inv:GetEquips()
+    if type(equips) ~= "table" then
+        return nil
+    end
+
+    for _, container_prefab in ipairs(SEARCHABLE_EQUIPPED_CONTAINER_PREFABS) do
+        for _, equipped_item in pairs(equips) do
+            if equipped_item ~= nil and equipped_item.prefab == container_prefab then
+                local container = equipped_item.replica ~= nil and equipped_item.replica.container or nil
+                local item = FindItemInSlots(container, prefab)
+                if item ~= nil then
+                    return item
+                end
+            end
+        end
+    end
+end
+
+local function EquipInventoryItem(inst, inv, item)
+    if item == nil or not item:IsValid() then
+        return false
+    end
+
+    if inst.components ~= nil and inst.components.inventory ~= nil then
+        inst.components.inventory:EquipActionItem(item)
+    elseif SendRPCToServer ~= nil and RPC ~= nil and RPC.EquipActionItem ~= nil then
+        SendRPCToServer(RPC.EquipActionItem, item)
+    elseif inv.EquipActionItem ~= nil then
+        inv:EquipActionItem(item)
+    else
+        return false
+    end
+
+    return true
 end
 
 function API:IsYyxkPlayer(inst)
@@ -422,26 +487,22 @@ function API:SummonShadowChest()
     return self:SendToServer("cykjccFN")
 end
 
--- 寻找并装备（仅物品栏）
+-- 从物品栏及已装备的夜雨容器中寻找并装备
 function API:FindAndEquipInInv(prefab)
     local inst = self.inst
-    local inv = inst.replica.inventory
-
-    for i = 1, inv:GetNumSlots() do
-        local item = inv:GetItemInSlot(i)
-        if item ~= nil and item.prefab == prefab then
-            if inst.components ~= nil and inst.components.inventory ~= nil then
-                inst.components.inventory:EquipActionItem(item)
-            elseif SendRPCToServer ~= nil and RPC ~= nil and RPC.EquipActionItem ~= nil then
-                SendRPCToServer(RPC.EquipActionItem, item)
-            else
-                inv:EquipActionItem(item)
-            end
-            return true
-        end
+    if not self:IsLocalYyxkPlayer(inst) then
+        return false
     end
 
-    return false
+    local inv = inst.replica ~= nil and inst.replica.inventory or nil
+    if inv == nil then
+        return false
+    end
+
+    local item = FindItemInSlots(inv, prefab)
+        or FindItemInEquippedContainers(inv, prefab)
+
+    return EquipInventoryItem(inst, inv, item)
 end
 
 -- 寻找并装备红叶
