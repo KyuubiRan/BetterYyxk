@@ -17,6 +17,8 @@ local SEARCHABLE_EQUIPPED_CONTAINER_PREFABS = {
     "nilxin_scepter",
     "yyxk_amulet",
 }
+local NILXIN_BLINK_FN_NAME = "NILSKILL1"
+local YEYU_LUNGE_FN_NAME = "LUNGE"
 local LOCKED_REPEAT_INTERVAL = 0.1
 local LUNGE_ATTRACTION_CANT_TAGS = { "player", "playerghost", "FX", "NOCLICK", "noattack", "notarget", "companion" }
 local LUNGE_ATTRACTION_ONEOF_TAGS = { "_combat", "_health" }
@@ -252,11 +254,13 @@ function API:InitHooks()
 
     local player_api = self
     replica.ToServer = function(self, fnName, ...)
+        fnName = player_api:ResolveSmartBlinkFnName(fnName)
+
         if fnName == "setNilSkill" then
             player_api:_OnSetNilSkill(...)
         end
 
-        if fnName == "LUNGE" then
+        if fnName == YEYU_LUNGE_FN_NAME then
             if player_api:IsYeyuLungeAttractionEnabled() then
                 local attracted_args = player_api:GetLungeAttractedArgs(...)
                 if attracted_args ~= nil then
@@ -365,6 +369,31 @@ function API:IsSwordEquipped()
     if weapon == nil then return false end
 
     return weapon.prefab == "yeyu_sword"
+end
+
+function API:ResolveSmartBlinkFnName(fn_name)
+    if fn_name ~= NILXIN_BLINK_FN_NAME and fn_name ~= YEYU_LUNGE_FN_NAME then
+        return fn_name
+    end
+
+    local inst = self.inst
+    if not LibKxyyConfig:Get("smart_blink", false)
+        or inst == nil
+        or inst:HasTag("yyxk_ironlord") then
+        -- 铁王形态复用 NILSKILL1，但第二参数是按键状态而不是坐标。
+        return fn_name
+    end
+
+    local sword_equipped = self:IsSwordEquipped()
+    if fn_name == NILXIN_BLINK_FN_NAME and self:IsNilxin() and sword_equipped then
+        return YEYU_LUNGE_FN_NAME
+    end
+
+    if fn_name == YEYU_LUNGE_FN_NAME and self:IsYeyu() and not sword_equipped then
+        return NILXIN_BLINK_FN_NAME
+    end
+
+    return fn_name
 end
 
 -- 设置魔杖功能

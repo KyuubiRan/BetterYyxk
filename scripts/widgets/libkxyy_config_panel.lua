@@ -119,6 +119,19 @@ AddDefinition({
 
 AddDefinition({
     type = "section",
+    label = "特殊功能",
+})
+
+AddDefinition({
+    name = "smart_blink",
+    type = "checkbox",
+    label = "智能闪现",
+    description = "开启后，空心装备红叶时使用夜雨突刺，夜雨未装备红叶时使用空心闪现",
+    default = false,
+})
+
+AddDefinition({
+    type = "section",
     label = "其他辅助",
 })
 
