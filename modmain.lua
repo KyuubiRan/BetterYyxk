@@ -16,6 +16,7 @@ if TheNet:IsDedicated() then
 end
 
 local LibKxyyConfig = require("libkxyy_config")
+local LibKxyyElementQueue = require("libkxyy_element_queue")
 local LibKxyyKeyListener = require("libkxyy_key_listener")
 local LibKxyyMagicData = require("libkxyy_magic_data")
 local LibKxyyConfigPanel = require("widgets/libkxyy_config_panel")
@@ -270,6 +271,36 @@ local function ToggleYeyuLungeAttraction()
     end
 end
 
+local function IsHudEditing()
+    if TheFrontEnd == nil then
+        return false
+    end
+
+    local screen = TheFrontEnd:GetActiveScreen()
+    return screen ~= nil
+        and screen.name == "HUD"
+        and screen.IsEditing ~= nil
+        and screen:IsEditing()
+end
+
+local function ShowElementQueuePanel()
+    if not player_active or active_controls == nil or IsHudEditing() then
+        return
+    end
+
+    local config_panel = active_controls.libkxyy_config_panel
+    if config_panel == nil or config_panel.capture_item ~= nil then
+        return
+    end
+
+    if active_controls.libkxyy_debug_panel ~= nil
+        and active_controls.libkxyy_debug_panel.shown then
+        active_controls.libkxyy_debug_panel:HidePanel()
+    end
+
+    config_panel:ToggleElementQueuePanelStandalone()
+end
+
 local function RegisterKeyActions()
     if actions_registered then
         return
@@ -357,6 +388,42 @@ local function RegisterKeyActions()
         on_down = ToggleYeyuLungeAttraction,
     })
 
+    LibKxyyKeyListener:RegisterAction("nilxin_element_queue_toggle", {
+        key = LibKxyyConfig:Get("nilxin_element_queue_toggle_hotkey", -1),
+        on_down = function()
+            local api = GetYyxkApi()
+            if player_active and api ~= nil then
+                LibKxyyElementQueue:Toggle(api)
+            end
+        end,
+    })
+
+    LibKxyyKeyListener:RegisterAction("nilxin_element_queue_panel", {
+        key = LibKxyyConfig:Get("nilxin_element_queue_panel_hotkey", -1),
+        on_down = ShowElementQueuePanel,
+        allow_when_settings_open = true,
+    })
+
+    LibKxyyKeyListener:RegisterAction("nilxin_element_queue_previous", {
+        key = LibKxyyConfig:Get("nilxin_element_queue_previous_hotkey", -1),
+        on_down = function()
+            local api = GetYyxkApi()
+            if player_active and api ~= nil then
+                LibKxyyElementQueue:SelectRelativePreset(-1, api)
+            end
+        end,
+    })
+
+    LibKxyyKeyListener:RegisterAction("nilxin_element_queue_next", {
+        key = LibKxyyConfig:Get("nilxin_element_queue_next_hotkey", -1),
+        on_down = function()
+            local api = GetYyxkApi()
+            if player_active and api ~= nil then
+                LibKxyyElementQueue:SelectRelativePreset(1, api)
+            end
+        end,
+    })
+
     LibKxyyKeyListener:RegisterAction("umbrella_repair", {
         key = LibKxyyConfig:Get("umbrella_repair_hotkey", -1),
         on_down = function()
@@ -407,6 +474,30 @@ local function RegisterConfigListener()
             LibKxyyKeyListener:SetActionKey("yeyu_lunge_attraction_toggle", changed.yeyu_lunge_attraction_toggle_hotkey)
         end
 
+        if changed.nilxin_element_queue_toggle_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("nilxin_element_queue_toggle",
+                changed.nilxin_element_queue_toggle_hotkey)
+        end
+
+        if changed.nilxin_element_queue_panel_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("nilxin_element_queue_panel",
+                changed.nilxin_element_queue_panel_hotkey)
+        end
+
+        if changed.nilxin_element_queue_previous_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("nilxin_element_queue_previous",
+                changed.nilxin_element_queue_previous_hotkey)
+        end
+
+        if changed.nilxin_element_queue_next_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("nilxin_element_queue_next",
+                changed.nilxin_element_queue_next_hotkey)
+        end
+
+        if changed.nilxin_element_queue_mode ~= nil then
+            LibKxyyElementQueue:ResetCursors()
+        end
+
         if changed.umbrella_repair_hotkey ~= nil then
             LibKxyyKeyListener:SetActionKey("umbrella_repair", changed.umbrella_repair_hotkey)
         end
@@ -432,6 +523,14 @@ local function ApplyConfigToRuntime()
     LibKxyyKeyListener:SetActionKey("hongye_true_damage", LibKxyyConfig:Get("hongye_true_damage_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("yeyu_lunge_attraction_toggle",
         LibKxyyConfig:Get("yeyu_lunge_attraction_toggle_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("nilxin_element_queue_toggle",
+        LibKxyyConfig:Get("nilxin_element_queue_toggle_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("nilxin_element_queue_panel",
+        LibKxyyConfig:Get("nilxin_element_queue_panel_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("nilxin_element_queue_previous",
+        LibKxyyConfig:Get("nilxin_element_queue_previous_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("nilxin_element_queue_next",
+        LibKxyyConfig:Get("nilxin_element_queue_next_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("umbrella_repair", LibKxyyConfig:Get("umbrella_repair_hotkey", -1))
     LibKxyyUmbrellaRepair:RefreshAutoRepairTask()
     RefreshMagicWheelOptions()
@@ -445,6 +544,7 @@ local function RegisterConfigLoadListener()
     config_load_listener_registered = true
 
     LibKxyyConfig:AddLoadListener(function()
+        LibKxyyElementQueue:Load()
         ApplyConfigToRuntime()
     end)
 end
@@ -534,6 +634,7 @@ local function HidePlayerControls(inst)
     end
 
     player_active = false
+    LibKxyyElementQueue:ResetRuntime()
     LibKxyyUmbrellaRepair:Detach()
     SetControlsUIVisible(nil, false)
 end
@@ -562,6 +663,7 @@ local function InitializeForPlayer(inst)
     end
     DBGAPI:Init(inst)
     RegisterHongyeTrueDamageEquipListener(inst)
+    LibKxyyElementQueue:Attach(inst, api)
 
     if not initialized then
         initialized = true

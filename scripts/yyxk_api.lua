@@ -1,18 +1,10 @@
 local LibKxyyConfig = require("libkxyy_config")
+local ElementData = require("libkxyy_element_data")
 
 local API = {
 }
 
-local NILXIN_SKILL_LIST = {
-    water = "水",
-    fire = "火",
-    ice = "冰",
-    lightning = "电",
-    wind = "风",
-    space = "空",
-    moon = "月",
-    shadow = "暗",
-}
+local NILXIN_SKILL_LIST = ElementData.LABELS
 local SEARCHABLE_EQUIPPED_CONTAINER_PREFABS = {
     nilxin_scepter = true,
     yyxk_amulet = true,

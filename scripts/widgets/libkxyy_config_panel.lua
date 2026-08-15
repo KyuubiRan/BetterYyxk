@@ -6,8 +6,10 @@ local ModConfig = require("libkxyy_config")
 local KeyListener = require("libkxyy_key_listener")
 local MagicData = require("libkxyy_magic_data")
 local UmbrellaRepairData = require("libkxyy_umbrella_repair_data")
+local ElementQueue = require("libkxyy_element_queue")
 local LibKxyyConfigItem = require("widgets/libkxyy_config_item")
 local LibKxyyConfigDetailPanel = require("widgets/libkxyy_config_detail_panel")
+local LibKxyyElementQueuePanel = require("widgets/libkxyy_element_queue_panel")
 
 local PANEL_WIDTH = 320
 local PANEL_HEIGHT = 430
@@ -34,6 +36,9 @@ local DETAIL_PANELS = {
     magic_wheel = {
         title = "轮盘魔法配置",
         definitions = {},
+    },
+    element_queue = {
+        panel_type = "element_queue",
     },
 }
 
@@ -166,6 +171,57 @@ AddDefinition({
     min = 1,
     max = 10,
     step = 0.5,
+})
+
+AddDefinition({
+    name = "nilxin_element_queue_toggle_hotkey",
+    type = "key",
+    label = "空心元素队列",
+    description = "按下切换空心元素队列开关",
+    default = -1,
+})
+
+AddDefinition({
+    name = "nilxin_element_queue_mode",
+    type = "choice",
+    label = "队列模式",
+    description = "目标模式为每个生物分别记录进度，全局模式为所有目标共用进度",
+    default = ElementQueue.MODE_TARGET,
+    options = ElementQueue.MODE_OPTIONS,
+})
+
+AddDefinition({
+    type = "button",
+    label = "配置队列",
+    description = "打开元素队列预设和当前队列配置",
+    button_label = "点击配置",
+    detail_panel = "element_queue",
+})
+
+AddDefinition({
+    name = "nilxin_element_queue_panel_hotkey",
+    type = "key",
+    label = "面板快捷键",
+    description = "按下直接显示元素队列配置面板",
+    default = -1,
+})
+
+AddDefinition({
+    name = "nilxin_element_queue_previous_hotkey",
+    type = "key",
+    label = "切换上一个队列",
+    label_size = 18,
+    description = "按下切换到上一个元素队列预设",
+    default = -1,
+})
+
+AddDefinition({
+    name = "nilxin_element_queue_next_hotkey",
+    type = "key",
+    label = "切换下一个队列",
+    label_size = 18,
+    description = "按下切换到下一个元素队列预设",
+    default = -1,
 })
 
 AddDefinition({
@@ -306,6 +362,8 @@ local LibKxyyConfigPanel = Class(Widget, function(self, owner)
     self.capture_item = nil
     self.capture_transition = false
     self.detail_panel_open = nil
+    self.active_detail_panel = nil
+    self.standalone_element_queue = false
 
     self:SetScaleMode(SCALEMODE_PROPORTIONAL)
     self:SetHAnchor(ANCHOR_MIDDLE)
@@ -360,6 +418,15 @@ local LibKxyyConfigPanel = Class(Widget, function(self, owner)
         self:HideDetailPanel()
     end))
     self.detail_panel:SetPosition(DETAIL_PANEL_OFFSET, 0, 0)
+
+    self.element_queue_panel = self:AddChild(LibKxyyElementQueuePanel(function()
+        if self.standalone_element_queue then
+            self:HidePanel()
+        else
+            self:HideDetailPanel()
+        end
+    end))
+    self.element_queue_panel:SetPosition(DETAIL_PANEL_OFFSET, 0, 0)
 
     self._config_listener = self.config:AddListener(function(changed)
         self:OnConfigChanged(changed)
@@ -489,6 +556,10 @@ function LibKxyyConfigPanel:Refresh()
     if self.detail_panel ~= nil and self.detail_panel.shown then
         self.detail_panel:Refresh()
     end
+
+    if self.element_queue_panel ~= nil and self.element_queue_panel.shown then
+        self.element_queue_panel:Refresh()
+    end
 end
 
 function LibKxyyConfigPanel:OnConfigChanged()
@@ -497,7 +568,14 @@ end
 
 function LibKxyyConfigPanel:ShowDetailPanel(detail_id)
     local detail = DETAIL_PANELS[detail_id]
-    if detail == nil or self.detail_panel == nil then
+    if detail == nil then
+        return false
+    end
+
+    local detail_panel = detail.panel_type == "element_queue"
+        and self.element_queue_panel
+        or self.detail_panel
+    if detail_panel == nil then
         return false
     end
 
@@ -505,10 +583,17 @@ function LibKxyyConfigPanel:ShowDetailPanel(detail_id)
         self:EndKeyCapture(self.capture_item, false)
     end
 
+    if self.active_detail_panel ~= nil and self.active_detail_panel ~= detail_panel then
+        self.active_detail_panel:HidePanel()
+    end
+
     self.detail_panel_open = detail_id
-    self.detail_panel:SetDefinitions(detail.title, detail.definitions)
-    self.detail_panel:ShowPanel()
-    self.default_focus = self.detail_panel.default_focus
+    self.active_detail_panel = detail_panel
+    if detail_panel == self.detail_panel then
+        detail_panel:SetDefinitions(detail.title, detail.definitions)
+    end
+    detail_panel:ShowPanel()
+    self.default_focus = detail_panel.default_focus
     FocusForController(self.default_focus)
 
     self:CancelMoveTo(false)
@@ -517,12 +602,13 @@ function LibKxyyConfigPanel:ShowDetailPanel(detail_id)
 end
 
 function LibKxyyConfigPanel:HideDetailPanel()
-    if self.detail_panel_open == nil or self.detail_panel == nil then
+    if self.detail_panel_open == nil or self.active_detail_panel == nil then
         return false
     end
 
     self.detail_panel_open = nil
-    self.detail_panel:HidePanel()
+    self.active_detail_panel:HidePanel()
+    self.active_detail_panel = nil
     self.default_focus = self.options_scroll_list
     FocusForController(self.default_focus)
 
@@ -535,16 +621,68 @@ function LibKxyyConfigPanel:ResetDetailPanel()
     self:CancelMoveTo(false)
     self:SetPosition(0, 0, 0)
     self.detail_panel_open = nil
+    self.active_detail_panel = nil
+    self.standalone_element_queue = false
     self.default_focus = self.options_scroll_list
+
+    if self.dialog ~= nil then
+        self.dialog:Show()
+    end
 
     if self.detail_panel ~= nil then
         self.detail_panel:HidePanel()
     end
+    if self.element_queue_panel ~= nil then
+        self.element_queue_panel:SetPosition(DETAIL_PANEL_OFFSET, 0, 0)
+        self.element_queue_panel:HidePanel()
+    end
+end
+
+function LibKxyyConfigPanel:ShowElementQueuePanel()
+    if not self.shown or self.standalone_element_queue then
+        self:ShowPanel()
+    end
+
+    return self:ShowDetailPanel("element_queue")
+end
+
+function LibKxyyConfigPanel:ShowElementQueuePanelStandalone()
+    KeyListener:SetSettingsOpen(true)
+
+    if self.capture_item ~= nil then
+        self:EndKeyCapture(self.capture_item, false)
+    end
+
+    self:ResetDetailPanel()
+    self.standalone_element_queue = true
+    self.detail_panel_open = "element_queue"
+    self.active_detail_panel = self.element_queue_panel
+    self.dialog:Hide()
+    self.element_queue_panel:SetPosition(0, 0, 0)
+    self.element_queue_panel:ShowPanel()
+    self.default_focus = self.element_queue_panel.default_focus
+    self:MoveToFront()
+    self:Show()
+    FocusForController(self.default_focus)
+    return true
+end
+
+function LibKxyyConfigPanel:ToggleElementQueuePanelStandalone()
+    if self.shown and self.standalone_element_queue then
+        self:HidePanel()
+        return false
+    end
+
+    return self:ShowElementQueuePanelStandalone()
 end
 
 function LibKxyyConfigPanel:OnControl(control, down)
     if self.detail_panel_open ~= nil and control == CONTROL_CANCEL and not down then
-        self:HideDetailPanel()
+        if self.standalone_element_queue then
+            self:HidePanel()
+        else
+            self:HideDetailPanel()
+        end
         return true
     end
 
@@ -565,8 +703,8 @@ function LibKxyyConfigPanel:HidePanel()
         self:EndKeyCapture(self.capture_item, false)
     end
 
-    self:ResetDetailPanel()
     self:Hide()
+    self:ResetDetailPanel()
 end
 
 function LibKxyyConfigPanel:Toggle()
