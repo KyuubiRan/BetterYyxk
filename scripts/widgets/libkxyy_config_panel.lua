@@ -7,6 +7,7 @@ local KeyListener = require("libkxyy_key_listener")
 local MagicData = require("libkxyy_magic_data")
 local UmbrellaRepairData = require("libkxyy_umbrella_repair_data")
 local LibKxyyConfigItem = require("widgets/libkxyy_config_item")
+local LibKxyyConfigDetailPanel = require("widgets/libkxyy_config_detail_panel")
 
 local PANEL_WIDTH = 320
 local PANEL_HEIGHT = 430
@@ -18,11 +19,51 @@ local OPTIONS_PANEL_Y = -42
 local SCROLLBAR_OFFSET = 28
 local SCROLLBAR_HEIGHT_OFFSET = -52
 local DEFAULT_MAGIC_WHEEL_HOTKEY = rawget(_G, "KEY_G") or 71
+local DETAIL_PANEL_GAP = 80
+local DETAIL_PANEL_OFFSET = PANEL_WIDTH + DETAIL_PANEL_GAP
+local MAIN_PANEL_OPEN_X = -DETAIL_PANEL_OFFSET * 0.5
+local PANEL_TRANSITION_TIME = 0.2
 
-local DEFINITIONS = {}
+local MAIN_DEFINITIONS = {}
+local CONFIG_DEFINITIONS = {}
+local DETAIL_PANELS = {
+    gem_priority = {
+        title = "宝石优先级",
+        definitions = {},
+    },
+    magic_wheel = {
+        title = "轮盘魔法配置",
+        definitions = {},
+    },
+}
 
 local function AddDefinition(definition)
-    DEFINITIONS[#DEFINITIONS + 1] = definition
+    MAIN_DEFINITIONS[#MAIN_DEFINITIONS + 1] = definition
+    if definition.name ~= nil then
+        CONFIG_DEFINITIONS[#CONFIG_DEFINITIONS + 1] = definition
+    end
+end
+
+local function AddDetailDefinition(detail_id, definition)
+    local detail = DETAIL_PANELS[detail_id]
+    if detail == nil then
+        return
+    end
+
+    detail.definitions[#detail.definitions + 1] = definition
+    if definition.name ~= nil then
+        CONFIG_DEFINITIONS[#CONFIG_DEFINITIONS + 1] = definition
+    end
+end
+
+local function FocusForController(widget)
+    if widget ~= nil
+        and widget.SetFocus ~= nil
+        and TheInput ~= nil
+        and TheInput.ControllerAttached ~= nil
+        and TheInput:ControllerAttached() then
+        widget:SetFocus()
+    end
 end
 
 AddDefinition({
@@ -60,6 +101,15 @@ AddDefinition({
     label = "短按切换魔法",
     description = "开启后，短按轮盘按键会在当前魔法和上一个魔法之间切换",
     default = true,
+})
+
+AddDefinition({
+    type = "button",
+    label = "轮盘魔法配置",
+    label_size = 20,
+    description = "打开轮盘中显示的魔法配置",
+    button_label = "点击配置",
+    detail_panel = "magic_wheel",
 })
 
 AddDefinition({
@@ -185,12 +235,15 @@ AddDefinition({
 })
 
 AddDefinition({
-    type = "section",
+    type = "button",
     label = "宝石优先级",
+    description = "打开各种宝石的修复优先级配置",
+    button_label = "点击配置",
+    detail_panel = "gem_priority",
 })
 
 for _, gem in ipairs(UmbrellaRepairData.GEMS) do
-    AddDefinition({
+    AddDetailDefinition("gem_priority", {
         name = UmbrellaRepairData.GetPriorityConfigName(gem.prefab),
         type = "number",
         label = gem.label,
@@ -231,13 +284,8 @@ AddDefinition({
     default = -1,
 })
 
-AddDefinition({
-    type = "section",
-    label = "轮盘魔法配置",
-})
-
 for _, option in ipairs(MagicData) do
-    AddDefinition({
+    AddDetailDefinition("magic_wheel", {
         name = ModConfig:GetMagicEnabledName(option.key),
         type = "checkbox",
         label = option.label,
@@ -247,16 +295,17 @@ for _, option in ipairs(MagicData) do
     })
 end
 
-ModConfig:SetDefinitions(DEFINITIONS)
+ModConfig:SetDefinitions(CONFIG_DEFINITIONS)
 
 local LibKxyyConfigPanel = Class(Widget, function(self, owner)
     Widget._ctor(self, "LibKxyyConfigPanel")
 
     self.owner = owner
     self.config = ModConfig
-    self.optionwidgets = DEFINITIONS
+    self.optionwidgets = MAIN_DEFINITIONS
     self.capture_item = nil
     self.capture_transition = false
+    self.detail_panel_open = nil
 
     self:SetScaleMode(SCALEMODE_PROPORTIONAL)
     self:SetHAnchor(ANCHOR_MIDDLE)
@@ -307,6 +356,11 @@ local LibKxyyConfigPanel = Class(Widget, function(self, owner)
     }))
     self.options_scroll_list:SetPosition(-2, -4, 0)
 
+    self.detail_panel = self:AddChild(LibKxyyConfigDetailPanel(self, function()
+        self:HideDetailPanel()
+    end))
+    self.detail_panel:SetPosition(DETAIL_PANEL_OFFSET, 0, 0)
+
     self._config_listener = self.config:AddListener(function(changed)
         self:OnConfigChanged(changed)
     end)
@@ -345,7 +399,15 @@ function LibKxyyConfigPanel:SetChoice(name, value)
 end
 
 function LibKxyyConfigPanel:RunAction(definition)
-    if definition == nil or definition.action == nil then
+    if definition == nil then
+        return false
+    end
+
+    if definition.detail_panel ~= nil then
+        return self:ShowDetailPanel(definition.detail_panel)
+    end
+
+    if definition.action == nil then
         return false
     end
 
@@ -419,9 +481,13 @@ end
 
 function LibKxyyConfigPanel:Refresh()
     if self.options_scroll_list ~= nil then
-        self.optionwidgets = DEFINITIONS
+        self.optionwidgets = MAIN_DEFINITIONS
         self.options_scroll_list:SetItemsData(self.optionwidgets)
         self.options_scroll_list:RefreshView()
+    end
+
+    if self.detail_panel ~= nil and self.detail_panel.shown then
+        self.detail_panel:Refresh()
     end
 end
 
@@ -429,8 +495,65 @@ function LibKxyyConfigPanel:OnConfigChanged()
     self:Refresh()
 end
 
+function LibKxyyConfigPanel:ShowDetailPanel(detail_id)
+    local detail = DETAIL_PANELS[detail_id]
+    if detail == nil or self.detail_panel == nil then
+        return false
+    end
+
+    if self.capture_item ~= nil then
+        self:EndKeyCapture(self.capture_item, false)
+    end
+
+    self.detail_panel_open = detail_id
+    self.detail_panel:SetDefinitions(detail.title, detail.definitions)
+    self.detail_panel:ShowPanel()
+    self.default_focus = self.detail_panel.default_focus
+    FocusForController(self.default_focus)
+
+    self:CancelMoveTo(false)
+    self:MoveTo(self:GetPosition(), Vector3(MAIN_PANEL_OPEN_X, 0, 0), PANEL_TRANSITION_TIME)
+    return true
+end
+
+function LibKxyyConfigPanel:HideDetailPanel()
+    if self.detail_panel_open == nil or self.detail_panel == nil then
+        return false
+    end
+
+    self.detail_panel_open = nil
+    self.detail_panel:HidePanel()
+    self.default_focus = self.options_scroll_list
+    FocusForController(self.default_focus)
+
+    self:CancelMoveTo(false)
+    self:MoveTo(self:GetPosition(), Vector3(0, 0, 0), PANEL_TRANSITION_TIME)
+    return true
+end
+
+function LibKxyyConfigPanel:ResetDetailPanel()
+    self:CancelMoveTo(false)
+    self:SetPosition(0, 0, 0)
+    self.detail_panel_open = nil
+    self.default_focus = self.options_scroll_list
+
+    if self.detail_panel ~= nil then
+        self.detail_panel:HidePanel()
+    end
+end
+
+function LibKxyyConfigPanel:OnControl(control, down)
+    if self.detail_panel_open ~= nil and control == CONTROL_CANCEL and not down then
+        self:HideDetailPanel()
+        return true
+    end
+
+    return LibKxyyConfigPanel._base.OnControl(self, control, down)
+end
+
 function LibKxyyConfigPanel:ShowPanel()
     KeyListener:SetSettingsOpen(true)
+    self:ResetDetailPanel()
     self:MoveToFront()
     self:Show()
 end
@@ -442,6 +565,7 @@ function LibKxyyConfigPanel:HidePanel()
         self:EndKeyCapture(self.capture_item, false)
     end
 
+    self:ResetDetailPanel()
     self:Hide()
 end
 
@@ -454,6 +578,8 @@ function LibKxyyConfigPanel:Toggle()
 end
 
 function LibKxyyConfigPanel:OnRemoveEntity()
+    self:CancelMoveTo(false)
+
     if self.config ~= nil and self._config_listener ~= nil then
         self.config:RemoveListener(self._config_listener)
         self._config_listener = nil
