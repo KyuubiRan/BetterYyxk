@@ -5,6 +5,7 @@ local PopupDialogScreen = require("screens/redux/popupdialog")
 local ModConfig = require("libkxyy_config")
 local KeyListener = require("libkxyy_key_listener")
 local MagicData = require("libkxyy_magic_data")
+local UmbrellaRepairData = require("libkxyy_umbrella_repair_data")
 local LibKxyyConfigItem = require("widgets/libkxyy_config_item")
 
 local PANEL_WIDTH = 320
@@ -129,6 +130,77 @@ AddDefinition({
     description = "开启后，空心装备红叶时使用夜雨突刺，夜雨未装备红叶时使用空心闪现",
     default = false,
 })
+
+AddDefinition({
+    type = "section",
+    label = "伞护修复",
+})
+
+AddDefinition({
+    name = "umbrella_repair_hotkey",
+    type = "key",
+    label = "修复按键",
+    description = "按下后使用一颗符合配置的宝石修复已装备的伞之护",
+    default = -1,
+})
+
+AddDefinition({
+    name = "umbrella_auto_repair_threshold",
+    type = "number",
+    label = "自动修复",
+    description = "每 3 秒检测一次，已装备的伞之护耐久低于该数值时自动修复，0 为关闭",
+    default = 0,
+    min = 0,
+    max = 99,
+    step = 1,
+})
+
+AddDefinition({
+    name = "umbrella_auto_repair_combat_check",
+    type = "checkbox",
+    label = "自动修复战斗检测",
+    label_size = 18,
+    description = "开启后，处于战斗或最近受到攻击时不进行自动修复",
+    default = true,
+})
+
+AddDefinition({
+    name = "umbrella_repair_scope",
+    type = "choice",
+    label = "允许范围",
+    description = "选择修复时允许使用物品栏、伞之护容器或两者中的宝石",
+    default = UmbrellaRepairData.SCOPE_ALL,
+    options = UmbrellaRepairData.SCOPE_OPTIONS,
+})
+
+AddDefinition({
+    name = "umbrella_repair_reserve",
+    type = "number",
+    label = "保留数量",
+    description = "每种宝石在允许范围内的总数不高于该值时不使用",
+    default = 0,
+    min = 0,
+    max = 99,
+    step = 1,
+})
+
+AddDefinition({
+    type = "section",
+    label = "宝石优先级",
+})
+
+for _, gem in ipairs(UmbrellaRepairData.GEMS) do
+    AddDefinition({
+        name = UmbrellaRepairData.GetPriorityConfigName(gem.prefab),
+        type = "number",
+        label = gem.label,
+        description = gem.label .. "的修复优先级，0 为关闭，数值越高越优先使用",
+        default = gem.default_priority,
+        min = 0,
+        max = 100,
+        step = 1,
+    })
+end
 
 AddDefinition({
     type = "section",
@@ -261,6 +333,12 @@ function LibKxyyConfigPanel:BindKey(name, key)
 end
 
 function LibKxyyConfigPanel:SetNumber(name, value)
+    self.config:SaveBatch({
+        [name] = value,
+    })
+end
+
+function LibKxyyConfigPanel:SetChoice(name, value)
     self.config:SaveBatch({
         [name] = value,
     })

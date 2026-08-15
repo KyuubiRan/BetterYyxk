@@ -14,8 +14,8 @@ local NILXIN_SKILL_LIST = {
     shadow = "暗",
 }
 local SEARCHABLE_EQUIPPED_CONTAINER_PREFABS = {
-    "nilxin_scepter",
-    "yyxk_amulet",
+    nilxin_scepter = true,
+    yyxk_amulet = true,
 }
 local NILXIN_BLINK_FN_NAME = "NILSKILL1"
 local YEYU_LUNGE_FN_NAME = "LUNGE"
@@ -63,14 +63,13 @@ local function FindItemInEquippedContainers(inv, prefab)
         return nil
     end
 
-    for _, container_prefab in ipairs(SEARCHABLE_EQUIPPED_CONTAINER_PREFABS) do
-        for _, equipped_item in pairs(equips) do
-            if equipped_item ~= nil and equipped_item.prefab == container_prefab then
-                local container = equipped_item.replica ~= nil and equipped_item.replica.container or nil
-                local item = FindItemInSlots(container, prefab)
-                if item ~= nil then
-                    return item
-                end
+    for _, equipped_item in pairs(equips) do
+        if equipped_item ~= nil
+            and SEARCHABLE_EQUIPPED_CONTAINER_PREFABS[equipped_item.prefab] then
+            local container = equipped_item.replica ~= nil and equipped_item.replica.container or nil
+            local item = FindItemInSlots(container, prefab)
+            if item ~= nil then
+                return item
             end
         end
     end
@@ -319,6 +318,118 @@ function API:GetEquippedWeapon()
     if not self:IsLocalYyxkPlayer(inst) then return nil end
 
     return inst.replica.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+end
+
+-- 伞之护可切换装备格，不能按固定格子查找。
+function API:GetEquippedUmbrella()
+    local inst = self.inst
+    if not self:IsLocalYyxkPlayer(inst) then
+        return nil
+    end
+
+    local inventory = inst.replica ~= nil and inst.replica.inventory or nil
+    local equips = inventory ~= nil and inventory.GetEquips ~= nil and inventory:GetEquips() or nil
+    if type(equips) ~= "table" then
+        return nil
+    end
+
+    for _, item in pairs(equips) do
+        if item ~= nil and item:IsValid() and item.prefab == "yyxk_amulet" then
+            return item
+        end
+    end
+end
+
+function API:GetUmbrellaDurabilityPercent(amulet)
+    if amulet == nil or not amulet:IsValid() or amulet.prefab ~= "yyxk_amulet" then
+        return nil
+    end
+
+    local armor = amulet.components ~= nil and amulet.components.armor or nil
+    if armor ~= nil and armor.GetPercent ~= nil then
+        return armor:GetPercent()
+    end
+
+    local inventory_item = amulet.replica ~= nil and amulet.replica.inventoryitem or nil
+    if inventory_item == nil or inventory_item.DeserializeUsage == nil then
+        return nil
+    end
+
+    local percent = nil
+    local listener = function(_, data)
+        percent = data ~= nil and tonumber(data.percent) or nil
+    end
+    amulet:ListenForEvent("percentusedchange", listener)
+    inventory_item:DeserializeUsage()
+    amulet:RemoveEventCallback("percentusedchange", listener)
+    return percent
+end
+
+function API:IsPlayerInCombat()
+    local inst = self.inst
+    if not self:IsLocalYyxkPlayer(inst) then
+        return false
+    end
+
+    local combat = inst.replica ~= nil and inst.replica.combat or nil
+    return (combat ~= nil and combat.GetTarget ~= nil and combat:GetTarget() ~= nil)
+        or inst:HasTag("attack")
+end
+
+function API:GiveItemToUmbrella(amulet, item)
+    local inst = self.inst
+    if not self:IsLocalYyxkPlayer(inst)
+        or amulet == nil
+        or not amulet:IsValid()
+        or amulet.prefab ~= "yyxk_amulet"
+        or item == nil
+        or not item:IsValid() then
+        return false
+    end
+
+    local controller = inst.components ~= nil and inst.components.playercontroller or nil
+    if controller == nil then
+        return false
+    end
+
+    if controller.IsBusy ~= nil and controller:IsBusy() then
+        return false
+    end
+
+    if not controller.ismastersim
+        and controller.locomotor ~= nil
+        and controller.CanLocomote ~= nil
+        and not controller:CanLocomote() then
+        return false
+    end
+
+    local action = BufferedAction(inst, amulet, ACTIONS.GIVE, item)
+    if controller.ismastersim then
+        if controller.DoAction == nil then
+            return false
+        end
+        controller:DoAction(action)
+    else
+        if controller.RemoteControllerUseItemOnItemFromInvTile == nil then
+            return false
+        end
+
+        -- 显式携带 GIVE 动作码，避免伞护的容器 STORE 动作抢占；服务端
+        -- 仍会验证宝石来自玩家物品栏或玩家已打开的伞护容器。
+        controller:RemoteControllerUseItemOnItemFromInvTile(action, amulet, item)
+    end
+    return true
+end
+
+function API:SayLocal(text)
+    local inst = self.inst
+    local talker = inst ~= nil and inst.components ~= nil and inst.components.talker or nil
+    if talker == nil then
+        return false
+    end
+
+    talker:Say(text, nil, true, false, true)
+    return true
 end
 
 -- 是否为夜雨

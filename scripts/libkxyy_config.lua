@@ -110,6 +110,16 @@ local function NormalizeValue(definition, value)
         return value
     end
 
+    if definition.type == "choice" then
+        for _, option in ipairs(definition.options or {}) do
+            if option.data == value then
+                return value
+            end
+        end
+
+        return definition.default
+    end
+
     return value
 end
 

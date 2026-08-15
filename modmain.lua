@@ -24,6 +24,7 @@ local LibKxyyIntro = require("widgets/libkxyy_intro")
 local LibKxyyMagicWheel = require("widgets/libkxyy_magic_wheel")
 local YyxkApi = require("yyxk_api")
 local DBGAPI = require("yyxk_debug_api")
+local LibKxyyUmbrellaRepair = require("libkxyy_umbrella_repair")
 
 local MAGIC_WHEEL_SHORT_PRESS_TIME = 0.2
 local DEFAULT_WEAPON_MAGIC_KEY = "YYXK_GATHER"
@@ -355,6 +356,15 @@ local function RegisterKeyActions()
         key = LibKxyyConfig:Get("yeyu_lunge_attraction_toggle_hotkey", -1),
         on_down = ToggleYeyuLungeAttraction,
     })
+
+    LibKxyyKeyListener:RegisterAction("umbrella_repair", {
+        key = LibKxyyConfig:Get("umbrella_repair_hotkey", -1),
+        on_down = function()
+            if player_active then
+                LibKxyyUmbrellaRepair:RepairOnce(false)
+            end
+        end,
+    })
 end
 
 local function RegisterConfigListener()
@@ -397,6 +407,14 @@ local function RegisterConfigListener()
             LibKxyyKeyListener:SetActionKey("yeyu_lunge_attraction_toggle", changed.yeyu_lunge_attraction_toggle_hotkey)
         end
 
+        if changed.umbrella_repair_hotkey ~= nil then
+            LibKxyyKeyListener:SetActionKey("umbrella_repair", changed.umbrella_repair_hotkey)
+        end
+
+        if changed.umbrella_auto_repair_threshold ~= nil then
+            LibKxyyUmbrellaRepair:RefreshAutoRepairTask()
+        end
+
         if IsMagicWheelOptionChanged(changed) then
             RefreshMagicWheelOptions()
         end
@@ -414,6 +432,8 @@ local function ApplyConfigToRuntime()
     LibKxyyKeyListener:SetActionKey("hongye_true_damage", LibKxyyConfig:Get("hongye_true_damage_hotkey", -1))
     LibKxyyKeyListener:SetActionKey("yeyu_lunge_attraction_toggle",
         LibKxyyConfig:Get("yeyu_lunge_attraction_toggle_hotkey", -1))
+    LibKxyyKeyListener:SetActionKey("umbrella_repair", LibKxyyConfig:Get("umbrella_repair_hotkey", -1))
+    LibKxyyUmbrellaRepair:RefreshAutoRepairTask()
     RefreshMagicWheelOptions()
 end
 
@@ -514,6 +534,7 @@ local function HidePlayerControls(inst)
     end
 
     player_active = false
+    LibKxyyUmbrellaRepair:Detach()
     SetControlsUIVisible(nil, false)
 end
 
@@ -552,6 +573,7 @@ local function InitializeForPlayer(inst)
     end
 
     player_active = true
+    LibKxyyUmbrellaRepair:Attach(inst)
 
     if not inst._libkxyy_load_success_announced then
         inst._libkxyy_load_success_announced = true

@@ -7,9 +7,11 @@ local KEY_NONE = -1
 local LABEL_LEFT = -123
 local CHECKBOX_LABEL_WIDTH_OFFSET = 120
 local KEY_LABEL_WIDTH_OFFSET = 188
-local NUMBER_LABEL_WIDTH_OFFSET = 188
+local NUMBER_LABEL_WIDTH_OFFSET = 144
+local CHOICE_LABEL_WIDTH_OFFSET = 154
 local BUTTON_LABEL_WIDTH_OFFSET = 188
 local NUMBER_SPINNER_WIDTH = 112
+local CHOICE_SPINNER_WIDTH = 132
 local BUTTON_WIDTH = 92
 local BUTTON_HEIGHT = 34
 local KEY_TOOLTIP = "点击设置按键，点击后右键取消设置按键"
@@ -274,6 +276,14 @@ local LibKxyyConfigItem = Class(Widget, function(self, panel, width, height)
     self.number_spinner:SetPosition(width * 0.5 - 58, 0, 0)
     self.number_spinner:Hide()
 
+    self.choice_spinner = self:AddChild(TEMPLATES.StandardSpinner({}, CHOICE_SPINNER_WIDTH, 34, CHATFONT, 22, function(data)
+        if not self.refreshing_choice then
+            self:SetChoice(data)
+        end
+    end, UICOLOURS.GOLD_SELECTED))
+    self.choice_spinner:SetPosition(width * 0.5 - CHOICE_SPINNER_WIDTH * 0.5, 0, 0)
+    self.choice_spinner:Hide()
+
     local old_lose_focus = self.key_button.OnLoseFocus
     self.key_button.OnLoseFocus = function(button)
         if old_lose_focus ~= nil then
@@ -357,6 +367,7 @@ function LibKxyyConfigItem:SetRightControlTooltip(text)
     SetWidgetTreeHoverText(self.key_button, text, options)
     SetWidgetTreeHoverText(self.action_button, text, options)
     SetWidgetTreeHoverText(self.number_spinner, text, options)
+    SetWidgetTreeHoverText(self.choice_spinner, text, options)
 end
 
 function LibKxyyConfigItem:HideRightControlTooltips()
@@ -364,6 +375,7 @@ function LibKxyyConfigItem:HideRightControlTooltips()
     HideWidgetTreeHoverText(self.key_button)
     HideWidgetTreeHoverText(self.action_button)
     HideWidgetTreeHoverText(self.number_spinner)
+    HideWidgetTreeHoverText(self.choice_spinner)
 end
 
 function LibKxyyConfigItem:RefreshKeyDisplay()
@@ -413,6 +425,16 @@ function LibKxyyConfigItem:RefreshNumberArrowState(value)
     end
 end
 
+function LibKxyyConfigItem:RefreshChoiceDisplay()
+    if self.definition == nil or self.definition.type ~= "choice" then
+        return
+    end
+
+    self.refreshing_choice = true
+    self.choice_spinner:SetSelected(self.panel.config:Get(self.definition.name, self.definition.default))
+    self.refreshing_choice = false
+end
+
 function LibKxyyConfigItem:SetData(definition)
     self.definition = definition
 
@@ -423,6 +445,7 @@ function LibKxyyConfigItem:SetData(definition)
 
     self:Show()
     self.label:SetString(definition.label or definition.name or "未命名配置")
+    self.label:SetSize(definition.label_size or 22)
     self:SetTooltip(definition.description)
     self:HideRightControlTooltips()
     self.bg:Show()
@@ -434,6 +457,7 @@ function LibKxyyConfigItem:SetData(definition)
         self.key_button:Hide()
         self.action_button:Hide()
         self.number_spinner:Hide()
+        self.choice_spinner:Hide()
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - CHECKBOX_LABEL_WIDTH_OFFSET, 28)
         self:SetChecked(self.panel.config:Get(definition.name, definition.default))
     elseif definition.type == "key" then
@@ -441,6 +465,7 @@ function LibKxyyConfigItem:SetData(definition)
         self.key_button:Show()
         self.action_button:Hide()
         self.number_spinner:Hide()
+        self.choice_spinner:Hide()
         self:SetRightControlTooltip(KEY_TOOLTIP)
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - KEY_LABEL_WIDTH_OFFSET, 28)
         self:RefreshKeyDisplay()
@@ -449,15 +474,29 @@ function LibKxyyConfigItem:SetData(definition)
         self.key_button:Hide()
         self.action_button:Hide()
         self.number_spinner:Show()
+        self.choice_spinner:Hide()
         self.number_spinner:SetOptions(MakeNumberOptions(definition))
         self:SetRightControlTooltip(definition.description)
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - NUMBER_LABEL_WIDTH_OFFSET, 28)
         self:RefreshNumberDisplay()
+    elseif definition.type == "choice" then
+        self.checkbox:Hide()
+        self.key_button:Hide()
+        self.action_button:Hide()
+        self.number_spinner:Hide()
+        self.choice_spinner:Show()
+        self.refreshing_choice = true
+        self.choice_spinner:SetOptions(definition.options or {})
+        self.refreshing_choice = false
+        self:SetRightControlTooltip(definition.description)
+        SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - CHOICE_LABEL_WIDTH_OFFSET, 28)
+        self:RefreshChoiceDisplay()
     elseif definition.type == "button" then
         self.checkbox:Hide()
         self.key_button:Hide()
         self.action_button:Show()
         self.number_spinner:Hide()
+        self.choice_spinner:Hide()
         self.action_button:SetText(definition.button_label or "执行")
         self:SetRightControlTooltip(definition.description)
         SetLeftAlignedTextRegion(self.label, LABEL_LEFT, self.item_width - BUTTON_LABEL_WIDTH_OFFSET, 28)
@@ -467,6 +506,7 @@ function LibKxyyConfigItem:SetData(definition)
         self.key_button:Hide()
         self.action_button:Hide()
         self.number_spinner:Hide()
+        self.choice_spinner:Hide()
         self.label:SetColour(UICOLOURS.GOLD)
         self.label:SetHAlign(ANCHOR_MIDDLE)
         self.label:SetRegionSize(self.item_width, 28)
@@ -476,6 +516,7 @@ function LibKxyyConfigItem:SetData(definition)
         self.key_button:Hide()
         self.action_button:Hide()
         self.number_spinner:Hide()
+        self.choice_spinner:Hide()
     end
 end
 
@@ -537,6 +578,15 @@ function LibKxyyConfigItem:StepNumber(direction)
 
     self.panel:SetNumber(self.definition.name, current + step * direction)
     self:RefreshNumberDisplay()
+end
+
+function LibKxyyConfigItem:SetChoice(value)
+    if self.definition == nil or self.definition.type ~= "choice" then
+        return
+    end
+
+    self.panel:SetChoice(self.definition.name, value)
+    self:RefreshChoiceDisplay()
 end
 
 function LibKxyyConfigItem:RunAction()
